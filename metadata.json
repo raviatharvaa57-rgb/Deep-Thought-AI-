@@ -1,0 +1,8 @@
+{
+  "name": "Deep Thought AI",
+  "description": "A productivity-focused AI chatbot app designed to provide intelligent answers to any question in a smooth, friendly, and efficient interface, inspired by ChatGPT. It supports text, voice, image, and video interactions.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
