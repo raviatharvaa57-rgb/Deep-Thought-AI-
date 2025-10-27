@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { Message, User } from '../types';
 import { PelicanIcon, SpeakerIcon, CopyIcon, CheckIcon } from '../constants';
 import * as geminiService from '../services/geminiService';
+import { useLanguage } from './LanguageProvider';
 
 // This function needs to be declared at a scope accessible by ChatMessage
 // or imported if it's in a utils file.
@@ -23,6 +25,7 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, user }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
+  const { t } = useLanguage();
 
   if (message.role === 'system') {
     return (
@@ -103,7 +106,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user }) => {
 
         {message.sources && message.sources.length > 0 && (
           <div className="mt-2">
-            <h4 className="text-xs font-semibold mb-1">Sources:</h4>
+            <h4 className="text-xs font-semibold mb-1">{t('chat.message.sources')}</h4>
             <div className="flex flex-wrap gap-2">
               {message.sources.map((source, index) => (
                 <a 

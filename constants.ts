@@ -124,4 +124,10 @@ export const CameraIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     )
 );
 
+export const SettingsIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M9.594 3.94c.09-.542.56-1.008 1.11-1.212l.962-.321c.55-.183 1.182.043 1.522.521l.34.478c.34.478.972.704 1.522.521l.962-.321c.55-.204 1.02.042 1.11.542l.398 2.387c.09.542-.144 1.112-.634 1.48l-.49.37c-.49.368-.694.99-.498 1.521l.242.648c.196.531.028 1.139-.398 1.48l-.49.37c-.49.368-.824.939-.634 1.48l.398 2.387c.09.542-.56 1.008-1.11 1.212l-.962.321c-.55.183-1.182-.043-1.522-.521l-.34-.478c-.34-.478-.972-.704-1.522-.521l-.962.321c-.55.204-1.02-.042-1.11-.542l-.398-2.387c-.09-.542.144-1.112.634-1.48l.49-.37c.49-.368.694.99-.498-1.521l-.242-.648c-.196-.531-.028-1.139.398-1.48l.49-.37c.49-.368.824.939.634-1.48l-.398-2.387zM12 15a3 3 0 100-6 3 3 0 000 6z" })
+    )
+);
+
 export const XIcon: React.FC<React.SVGProps<SVGSVGElement>> = ExitIcon;

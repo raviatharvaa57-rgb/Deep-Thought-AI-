@@ -51,6 +51,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
     }
   };
 
+  const handleClearHistory = () => {
+    historyService.clearAllHistory(user);
+    setHistory([]);
+    startNewChat();
+  };
+
   if (activeMode === ChatMode.Live) {
     return <LiveConversation onExit={() => setActiveMode(ChatMode.Chat)} />;
   }
@@ -67,6 +73,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
         onSelectChat={selectChat}
         currentChatId={currentChatId}
         onUpdateUser={onUpdateUser}
+        theme={theme}
+        setTheme={setTheme}
+        onClearHistory={handleClearHistory}
       />
       <main className="flex-1 flex flex-col h-screen transition-all duration-300">
         <ChatView

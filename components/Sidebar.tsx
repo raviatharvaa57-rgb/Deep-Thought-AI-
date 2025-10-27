@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, ChatHistoryItem, ChatMode } from '../types';
+import { User, ChatHistoryItem, ChatMode, Theme } from '../types';
 import { 
   PelicanIcon, 
   PlusIcon, 
@@ -14,9 +14,12 @@ import {
   ImageIcon,
   VideoIcon,
   LiveIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  SettingsIcon
 } from '../constants';
 import ProfileModal from './ProfileModal';
+import SettingsModal from './SettingsModal';
+import { useLanguage } from './LanguageProvider';
 
 interface SidebarProps {
   user: User;
@@ -28,17 +31,23 @@ interface SidebarProps {
   onSelectChat: (chatId: string) => void;
   currentChatId: string;
   onUpdateUser: (user: User) => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  onClearHistory: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIsSidebarOpen, onLogout, history, onSelectChat, currentChatId, onUpdateUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIsSidebarOpen, onLogout, history, onSelectChat, currentChatId, onUpdateUser, theme, setTheme, onClearHistory }) => {
+  const { t } = useLanguage();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const aiFeatures = [
     { label: 'Thinking Mode', icon: BrainCircuitIcon, mode: ChatMode.Thinking },
     { label: 'Web Search', icon: SearchIcon, mode: ChatMode.Search },
     { label: 'Maps Search', icon: MapIcon, mode: ChatMode.Maps },
     { label: 'Generate Image', icon: ImageIcon, mode: ChatMode.Imagine },
+    { label: 'Analyze Image', icon: ImageIcon, mode: ChatMode.AnalyzeImage },
     { label: 'Generate Video', icon: VideoIcon, mode: ChatMode.Video },
     { label: 'Analyze Video', icon: BrainCircuitIcon, mode: ChatMode.AnalyzeVideo },
     { label: 'Live Talk', icon: LiveIcon, mode: ChatMode.Live },
@@ -54,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
               className="flex items-center w-full p-2 text-sm font-semibold text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg rounded-md hover:bg-light-border dark:hover:bg-dark-border transition-colors"
             >
               <PlusIcon className="w-5 h-5 mr-3" />
-              New Chat
+              {t('sidebar.newChat')}
             </button>
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1">
               <ChevronLeftIcon className="w-6 h-6" />
@@ -63,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
 
           {user.email && (
             <div className="mb-6">
-              <h2 className="px-2 text-xs font-semibold text-light-secondary-text dark:text-dark-secondary-text uppercase tracking-wider mb-2">AI Features</h2>
+              <h2 className="px-2 text-xs font-semibold text-light-secondary-text dark:text-dark-secondary-text uppercase tracking-wider mb-2">{t('sidebar.aiFeatures')}</h2>
               <div className="space-y-1">
                 {aiFeatures.map((feature) => (
                   <button
@@ -80,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
           )}
 
           <nav className="flex-1">
-            <h2 className="px-2 text-xs font-semibold text-light-secondary-text dark:text-dark-secondary-text uppercase tracking-wider mb-2">History</h2>
+            <h2 className="px-2 text-xs font-semibold text-light-secondary-text dark:text-dark-secondary-text uppercase tracking-wider mb-2">{t('sidebar.history')}</h2>
             <div className="space-y-1">
               {history.map((chat) => (
                 <button
@@ -116,14 +125,21 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
                     className="flex items-center w-full px-4 py-2 text-sm text-light-text dark:text-dark-text hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <UserCircleIcon className="w-5 h-5 mr-3" />
-                    Profile
+                    {t('sidebar.user.profile')}
+                  </button>
+                  <button
+                    onClick={() => { setIsSettingsModalOpen(true); setShowUserMenu(false); }}
+                    className="flex items-center w-full px-4 py-2 text-sm text-light-text dark:text-dark-text hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <SettingsIcon className="w-5 h-5 mr-3" />
+                    {t('sidebar.user.settings')}
                   </button>
                   <button
                     onClick={onLogout}
                     className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <LogoutIcon className="w-5 h-5 mr-3" />
-                    Logout
+                    {t('sidebar.user.logout')}
                   </button>
                 </div>
               )}
@@ -139,6 +155,13 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
         onClose={() => setIsProfileModalOpen(false)}
         user={user}
         onUpdateUser={onUpdateUser}
+      />
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        theme={theme}
+        setTheme={setTheme}
+        onClearHistory={onClearHistory}
       />
     </>
   );

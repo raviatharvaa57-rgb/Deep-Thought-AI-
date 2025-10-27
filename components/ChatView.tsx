@@ -7,6 +7,7 @@ import * as historyService from '../services/historyService';
 import ThemeToggle from './ThemeToggle';
 import { SendIcon, MicIcon, AttachmentIcon, StopIcon, HamburgerIcon, SparklesIcon, SearchIcon, MapIcon, ImageIcon, VideoIcon, EditIcon, BrainCircuitIcon, LiveIcon } from '../constants';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
+import { useLanguage } from './LanguageProvider';
 
 interface ChatViewProps {
   chatId: string;
@@ -27,6 +28,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   const [attachedFile, setAttachedFile] = useState<{ file: File, preview: string } | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [videoAspectRatio, setVideoAspectRatio] = useState<VideoAspectRatio>('16:9');
+  const { t } = useLanguage();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { transcript, isListening, startListening, stopListening } = useSpeechRecognition();
@@ -55,26 +57,26 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   const getModeInfo = useCallback((mode: ChatMode) => {
     if (attachedFile && mode !== ChatMode.EditImage && mode !== ChatMode.AnalyzeImage && mode !== ChatMode.ImageToVideo && mode !== ChatMode.AnalyzeVideo) {
        if (!user.email) {
-        return { icon: AttachmentIcon, text: "Sign in to use AI features with your file." };
+        return { icon: AttachmentIcon, text: t('chat.fileAttached.guest') };
       }
-      return { icon: AttachmentIcon, text: "File attached. What would you like to do with it?" };
+      return { icon: AttachmentIcon, text: t('chat.fileAttached') };
     }
-    const defaultInfo = { icon: SparklesIcon, text: "Hi there 👋, I'm your Deep Thought AI Assistant! Ask me anything..." };
+    const defaultInfo = { icon: SparklesIcon, text: t('chat.initial.greeting') };
     const modeMap: Record<ChatMode, { icon: React.FC<any>, text: string }> = {
       [ChatMode.Chat]: defaultInfo,
-      [ChatMode.Thinking]: { icon: BrainCircuitIcon, text: "Switched to Thinking Mode. I'll use the advanced gemini-2.5-pro model to handle your complex query." },
-      [ChatMode.Search]: { icon: SearchIcon, text: "Switched to Search Mode. I'll use Google Search to answer." },
-      [ChatMode.Maps]: { icon: MapIcon, text: "Switched to Maps Mode. I'll use Google Maps to answer." },
-      [ChatMode.Imagine]: { icon: ImageIcon, text: "Switched to Imagine Mode. Describe an image you want me to create." },
-      [ChatMode.EditImage]: { icon: EditIcon, text: "Describe how you want to edit the attached image." },
-      [ChatMode.AnalyzeImage]: { icon: ImageIcon, text: "Ask me anything about the attached image." },
-      [ChatMode.AnalyzeVideo]: { icon: BrainCircuitIcon, text: "Ask me anything about the attached video." },
-      [ChatMode.Video]: { icon: VideoIcon, text: "Switched to Video Mode. Describe a video you want me to create." },
-      [ChatMode.ImageToVideo]: { icon: VideoIcon, text: "Describe the video you want to create from the attached image." },
-      [ChatMode.Live]: { icon: LiveIcon, text: "Entering live conversation mode..." },
+      [ChatMode.Thinking]: { icon: BrainCircuitIcon, text: t('chat.mode.thinking') },
+      [ChatMode.Search]: { icon: SearchIcon, text: t('chat.mode.search') },
+      [ChatMode.Maps]: { icon: MapIcon, text: t('chat.mode.maps') },
+      [ChatMode.Imagine]: { icon: ImageIcon, text: t('chat.mode.imagine') },
+      [ChatMode.EditImage]: { icon: EditIcon, text: t('chat.mode.editImage') },
+      [ChatMode.AnalyzeImage]: { icon: ImageIcon, text: t('chat.mode.analyzeImage') },
+      [ChatMode.AnalyzeVideo]: { icon: BrainCircuitIcon, text: t('chat.mode.analyzeVideo') },
+      [ChatMode.Video]: { icon: VideoIcon, text: t('chat.mode.video') },
+      [ChatMode.ImageToVideo]: { icon: VideoIcon, text: t('chat.mode.imageToVideo') },
+      [ChatMode.Live]: { icon: LiveIcon, text: t('chat.mode.live') },
     };
     return modeMap[mode] || defaultInfo;
-  }, [attachedFile, user.email]);
+  }, [attachedFile, user.email, t]);
 
   const handleModeChange = useCallback((newMode: ChatMode) => {
     setActiveMode(newMode);
@@ -191,13 +193,14 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       '/imagine': ChatMode.Imagine, 
       '/video': ChatMode.Video, 
       '/live': ChatMode.Live,
+      '/analyzeimage': ChatMode.AnalyzeImage,
       '/analyzevideo': ChatMode.AnalyzeVideo,
     };
     if (modeMap[command]) handleModeChange(modeMap[command]);
   }, [handleModeChange]);
 
   useEffect(() => {
-    const command = ['/think', '/search', '/maps', '/imagine', '/video', '/live', '/analyzevideo'].find(c => c === input.trim());
+    const command = ['/think', '/search', '/maps', '/imagine', '/video', '/live', '/analyzeimage', '/analyzevideo'].find(c => c === input.trim());
     if (command) {
       if (!user.email) {
         const systemMessage: Message = {
@@ -218,7 +221,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   
   const renderAspectRatioSelector = (options: string[], selected: string, setter: (val: any) => void) => (
     <div className="mb-2 flex items-center justify-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-light-secondary-text dark:text-dark-secondary-text">Aspect Ratio:</span>
+        <span className="text-sm font-medium text-light-secondary-text dark:text-dark-secondary-text">{t('chat.aspectRatio')}</span>
         {options.map(ratio => (
             <button key={ratio} onClick={() => setter(ratio)} className={`px-3 py-1 text-sm rounded-full ${selected === ratio ? 'bg-blue-600 text-white' : 'bg-light-input dark:bg-dark-input hover:bg-light-border dark:hover:bg-dark-border'}`}>
                 {ratio}
@@ -231,7 +234,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
     <div className="flex flex-col h-full bg-light-bg dark:bg-dark-bg">
       <header className="flex items-center p-4 border-b border-light-border dark:border-dark-border">
         <button onClick={toggleSidebar} className="md:hidden mr-4 p-1"><HamburgerIcon className="w-6 h-6" /></button>
-        <h1 className="text-lg font-semibold flex-1">Deep Thought AI</h1>
+        <h1 className="text-lg font-semibold flex-1">{t('welcome.title')}</h1>
         <ThemeToggle theme={theme} setTheme={setTheme} />
       </header>
 
@@ -265,15 +268,15 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
             <div className="flex-1 flex flex-wrap gap-2">
                 {user.email && attachedFile.file.type.startsWith('image/') ? (
                     <>
-                        <button onClick={() => setActiveMode(ChatMode.AnalyzeImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeImage ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><ImageIcon className="w-4 h-4" />Analyze</button>
-                        <button onClick={() => setActiveMode(ChatMode.EditImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.EditImage ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><EditIcon className="w-4 h-4" />Edit</button>
-                        <button onClick={() => setActiveMode(ChatMode.ImageToVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.ImageToVideo ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><VideoIcon className="w-4 h-4" />Animate</button>
+                        <button onClick={() => setActiveMode(ChatMode.AnalyzeImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeImage ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><ImageIcon className="w-4 h-4" />{t('chat.attachment.analyze')}</button>
+                        <button onClick={() => setActiveMode(ChatMode.EditImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.EditImage ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><EditIcon className="w-4 h-4" />{t('chat.attachment.edit')}</button>
+                        <button onClick={() => setActiveMode(ChatMode.ImageToVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.ImageToVideo ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><VideoIcon className="w-4 h-4" />{t('chat.attachment.animate')}</button>
                     </>
                 ) : user.email && attachedFile.file.type.startsWith('video/') ? (
-                    <button onClick={() => setActiveMode(ChatMode.AnalyzeVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeVideo ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><BrainCircuitIcon className="w-4 h-4" />Analyze Video</button>
+                    <button onClick={() => setActiveMode(ChatMode.AnalyzeVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeVideo ? 'bg-blue-600 text-white' : 'bg-light-border dark:bg-dark-border'}`}><BrainCircuitIcon className="w-4 h-4" />{t('chat.attachment.analyzeVideo')}</button>
                 ) : !user.email ? (
                     <p className="text-sm text-light-secondary-text dark:text-dark-secondary-text p-1">
-                      Sign in to unlock AI features for your file.
+                      {t('chat.attachment.guest')}
                     </p>
                 ) : null}
             </div>
@@ -281,7 +284,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
           </div>
         )}
         <form onSubmit={handleFormSubmit} className="relative">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isListening ? "Listening..." : "Ask me anything, or type a command like /think..."} className="w-full pl-12 pr-28 py-3 rounded-full bg-light-input dark:bg-dark-input focus:ring-2 focus:ring-blue-500 focus:outline-none" disabled={isLoading} />
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isListening ? t('chat.listening') : t('chat.placeholder')} className="w-full pl-12 pr-28 py-3 rounded-full bg-light-input dark:bg-dark-input focus:ring-2 focus:ring-blue-500 focus:outline-none" disabled={isLoading} />
           <div className="absolute left-3 top-1/2 -translate-y-1/2">
             <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-light-secondary-text dark:text-dark-secondary-text hover:text-blue-500"><AttachmentIcon className="w-6 h-6" /></button>
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*,video/*" />

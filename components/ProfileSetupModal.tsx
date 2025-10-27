@@ -1,34 +1,21 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import * as authService from '../services/authService';
-import { CameraIcon, XIcon } from '../constants';
+import { CameraIcon } from '../constants';
 import { useLanguage } from './LanguageProvider';
 
-interface ProfileModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+interface ProfileSetupModalProps {
     user: User;
     onUpdateUser: (user: User) => void;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, onUpdateUser }) => {
+const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ user, onUpdateUser }) => {
     const { t } = useLanguage();
     const [firstName, setFirstName] = useState(user.firstName);
     const [lastName, setLastName] = useState(user.lastName);
     const [newAvatarPreview, setNewAvatarPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Reset state when modal opens or user changes
-    useEffect(() => {
-        if (isOpen) {
-            setFirstName(user.firstName);
-            setLastName(user.lastName);
-            setNewAvatarPreview(null);
-        }
-    }, [isOpen, user]);
-
-    if (!isOpen) return null;
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -42,8 +29,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, onUp
     };
 
     const handleRemoveAvatar = () => {
-        // We just need to show the generated one in preview.
-        // The final generation happens on submit to capture name changes.
         setNewAvatarPreview(authService.generateAvatar(firstName, lastName));
     };
     
@@ -52,34 +37,27 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, onUp
         
         let finalAvatar: string;
         if (newAvatarPreview) {
-            // User uploaded a new avatar or clicked "Remove Photo" which sets a preview
             finalAvatar = newAvatarPreview;
         } else {
-            // User didn't touch the avatar, but might have changed their name
             const wasGenerated = user.avatar.startsWith('data:image/svg+xml');
             const nameChanged = user.firstName !== firstName || user.lastName !== lastName;
             if (wasGenerated && nameChanged) {
-                // Regenerate avatar with new name
                 finalAvatar = authService.generateAvatar(firstName, lastName);
             } else {
-                // Keep the old avatar (whether it was custom or generated but name didn't change)
                 finalAvatar = user.avatar;
             }
         }
 
-        onUpdateUser({ ...user, firstName, lastName, avatar: finalAvatar });
-        onClose();
+        onUpdateUser({ ...user, firstName, lastName, avatar: finalAvatar, isNewUser: false });
     };
 
     const currentAvatar = newAvatarPreview || user.avatar;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-light-secondary-text dark:text-dark-secondary-text hover:text-light-text dark:hover:text-dark-text">
-                    <XIcon className="w-6 h-6" />
-                </button>
-                <h2 className="text-2xl font-bold mb-6 text-center text-light-text dark:text-dark-text">{t('profile.title')}</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+            <div className="bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-xl w-full max-w-md p-6">
+                <h2 className="text-2xl font-bold mb-2 text-center text-light-text dark:text-dark-text">{t('profileSetup.title')}</h2>
+                <p className="text-center text-light-secondary-text dark:text-dark-secondary-text mb-6">{t('profileSetup.subtitle')}</p>
                 
                 <form onSubmit={handleSubmit}>
                     <div className="flex flex-col items-center mb-6">
@@ -124,12 +102,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, onUp
                         </div>
                     </div>
                     
-                    <div className="mt-8 flex justify-end gap-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-light-border dark:bg-dark-border hover:bg-gray-300 dark:hover:bg-gray-600 text-light-text dark:text-dark-text">
-                            {t('profile.cancel')}
-                        </button>
-                        <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
-                            {t('profile.save')}
+                    <div className="mt-8 flex justify-end">
+                        <button type="submit" className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
+                            {t('profileSetup.save')}
                         </button>
                     </div>
                 </form>
@@ -138,4 +113,4 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, user, onUp
     );
 };
 
-export default ProfileModal;
+export default ProfileSetupModal;

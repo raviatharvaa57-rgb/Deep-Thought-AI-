@@ -38,7 +38,6 @@ const useSpeechRecognition = () => {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
       let finalTranscript = '';

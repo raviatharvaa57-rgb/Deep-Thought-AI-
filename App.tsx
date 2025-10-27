@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 import AuthScreen from './components/WelcomeScreen'; // Renamed semantically, file is WelcomeScreen.tsx
+import ProfileSetupModal from './components/ProfileSetupModal';
 import { Theme, User } from './types';
 import * as authService from './services/authService';
 import { generateAvatar } from './services/authService';
@@ -108,6 +109,10 @@ const App: React.FC = () => {
 
   if (!user) {
     return <AuthScreen onLogin={handleLogin} onGuest={handleGuest} />;
+  }
+
+  if (user.isNewUser && user.email) {
+    return <ProfileSetupModal user={user} onUpdateUser={handleUpdateUser} />;
   }
 
   return (

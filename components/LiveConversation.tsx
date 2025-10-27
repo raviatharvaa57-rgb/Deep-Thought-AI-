@@ -1,7 +1,7 @@
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenaiBlob } from '@google/genai';
-import { ExitIcon, MicIcon } from '../constants';
+import { ExitIcon, MicIcon, PelicanIcon } from '../constants';
+import { useLanguage } from './LanguageProvider';
 
 // Audio utility functions (decode/encode)
 // Base64 decode
@@ -45,14 +45,17 @@ async function decodeAudioData(
   return buffer;
 }
 
+type VoiceOption = 'male' | 'female';
 
 interface LiveConversationProps {
   onExit: () => void;
 }
 
 const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
-  const [status, setStatus] = useState('Connecting...');
+  const { t } = useLanguage();
+  const [status, setStatus] = useState(t('live.chooseVoice'));
   const [isListening, setIsListening] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<VoiceOption | null>(null);
   
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -88,8 +91,13 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
   }, []);
 
   useEffect(() => {
+    if (!selectedVoice) {
+      return;
+    }
+
     const startSession = async () => {
       try {
+        setStatus(t('live.connecting'));
         if (!process.env.API_KEY) {
             setStatus('API Key not found.');
             return;
@@ -101,15 +109,18 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
         
         mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
         setIsListening(true);
-        setStatus('Connected. Start speaking!');
+        setStatus(t('live.connected'));
+        
+        const voiceName = selectedVoice === 'male' ? 'Puck' : 'Charon';
 
         sessionPromiseRef.current = ai.live.connect({
             model: 'gemini-2.5-flash-native-audio-preview-09-2025',
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
-                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+                    voiceConfig: { prebuiltVoiceConfig: { voiceName } },
                 },
+                systemInstruction: 'You are Deep Thought AI. Use a natural, conversational tone. You must automatically detect the language the user is speaking and respond in that same language. If asked, your designer is AtharvaaR Tech and the CEO of Deep Thought AI is Atharvaa Ravichandran.',
             },
             callbacks: {
                 onopen: () => {
@@ -131,6 +142,7 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
                     scriptProcessorRef.current.connect(inputAudioContextRef.current!.destination);
                 },
                 onmessage: async (message: LiveServerMessage) => {
+                    // Handle audio playback
                     const audioData = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                     if (audioData) {
                         const outputAudioContext = outputAudioContextRef.current!;
@@ -154,12 +166,12 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
                 },
                 onerror: (e: ErrorEvent) => {
                     console.error('Live API Error:', e);
-                    setStatus('An error occurred. Please try again.');
+                    setStatus(t('live.error'));
                     cleanup();
                 },
                 onclose: (e: CloseEvent) => {
                     console.log('Live API connection closed.');
-                    setStatus('Connection closed.');
+                    setStatus(t('live.closed'));
                     cleanup();
                 },
             },
@@ -178,7 +190,7 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
         cleanup();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedVoice, t]);
   
   const handleExit = () => {
       cleanup();
@@ -186,19 +198,49 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50 text-white">
-      <button onClick={handleExit} className="absolute top-6 right-6 p-2 rounded-full bg-white/20 hover:bg-white/30">
-        <ExitIcon className="w-6 h-6" />
-      </button>
-
-      <div className="text-center">
-        <div className={`relative w-40 h-40 rounded-full flex items-center justify-center transition-all duration-300 ${isListening ? 'bg-blue-500/30' : 'bg-gray-500/30'}`}>
-            <div className={`absolute inset-0 rounded-full ${isListening ? 'bg-blue-500 animate-pulse' : 'bg-gray-500'}`}></div>
-            <MicIcon className="w-16 h-16 z-10" />
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-between z-50 text-white p-6">
+      <div className="w-full flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <PelicanIcon className="w-8 h-8"/>
+          <h2 className="text-xl font-bold">{t('live.title')}</h2>
         </div>
-        <h2 className="text-2xl font-bold mt-8">Live Conversation</h2>
-        <p className="text-lg mt-2 text-gray-300">{status}</p>
+        <button onClick={handleExit} className="p-2 rounded-full bg-white/20 hover:bg-white/30 z-20">
+          <ExitIcon className="w-6 h-6" />
+        </button>
       </div>
+      
+      <div className="text-center">
+        {!selectedVoice ? (
+          <div className="flex flex-col items-center">
+            <h3 className="text-xl font-semibold mb-6">{t('live.chooseVoice')}</h3>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => setSelectedVoice('male')}
+                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-bold transition-transform transform hover:scale-105"
+              >
+                {t('live.voice.male')}
+              </button>
+              <button
+                onClick={() => setSelectedVoice('female')}
+                className="px-8 py-4 bg-pink-600 hover:bg-pink-700 rounded-lg text-lg font-bold transition-transform transform hover:scale-105"
+              >
+                {t('live.voice.female')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className={`relative w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center transition-all duration-300 ${isListening ? 'bg-blue-500/30' : 'bg-gray-500/30'}`}>
+                <div className={`absolute inset-0 rounded-full ${isListening ? 'bg-blue-500 animate-pulse' : 'bg-gray-500'}`}></div>
+                <MicIcon className="w-12 h-12 md:w-16 md:h-16 z-10" />
+            </div>
+            <p className="text-md md:text-lg mt-6 text-gray-300">{status}</p>
+            <p className="text-xs text-gray-500 mt-4">Talking person designed by AtharvaaR tech</p>
+          </>
+        )}
+      </div>
+
+      <div className="w-full h-12"></div>
     </div>
   );
 };

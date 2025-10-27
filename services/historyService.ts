@@ -46,3 +46,16 @@ export const saveChatMessages = (chatId: string, messages: Message[], user: User
   const storage = getStorage(user);
   storage.setItem(getChatKey(chatId), JSON.stringify(messages));
 };
+
+export const clearAllHistory = (user: User | null) => {
+  const storage = getStorage(user);
+  const history = getHistory(user); // Get all chat items
+
+  // Remove individual chat message logs
+  for (const chatItem of history) {
+    storage.removeItem(getChatKey(chatItem.id));
+  }
+
+  // Remove the history list itself
+  storage.removeItem(getHistoryKey(user));
+};

@@ -78,6 +78,7 @@ export const signup = async (firstName: string, lastName: string, email: string,
         email,
         password, // In a real app, this should be hashed
         avatar: generateAvatar(firstName, lastName),
+        isNewUser: true,
       };
 
       users.push(newUser);

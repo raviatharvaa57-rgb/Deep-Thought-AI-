@@ -1,9 +1,9 @@
-
 import { GoogleGenAI, Chat, GenerateContentResponse, Type, Modality } from '@google/genai';
 import { GroundingChunk, AspectRatio, VideoAspectRatio } from '../types';
 
 let ai: GoogleGenAI;
 const chatSessions: Record<string, Chat> = {};
+const SYSTEM_INSTRUCTION = 'You are Deep Thought AI. If asked, the CEO of Deep Thought AI is Atharvaa Ravichandran.';
 
 const getAI = () => {
   if (!ai) {
@@ -20,6 +20,9 @@ const getChatSession = (chatId: string): Chat => {
     const ai = getAI();
     chatSessions[chatId] = ai.chats.create({
       model: 'gemini-2.5-flash',
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+      }
     });
   }
   return chatSessions[chatId];
@@ -50,6 +53,9 @@ export const analyzeImage = async (prompt: string, file: File): Promise<string> 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: { parts: [{text: prompt}, imagePart] },
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+        }
     });
     return response.text;
 };
@@ -60,6 +66,9 @@ export const analyzeVideo = async (prompt: string, file: File): Promise<string> 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
         contents: { parts: [{text: prompt}, videoPart] },
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+        }
     });
     return response.text;
 };
@@ -87,7 +96,8 @@ export const generateWithThinking = async (prompt: string): Promise<string> => {
       model: 'gemini-2.5-pro',
       contents: prompt,
       config: {
-          thinkingConfig: { thinkingBudget: 32768 }
+          thinkingConfig: { thinkingBudget: 32768 },
+          systemInstruction: SYSTEM_INSTRUCTION,
       }
   });
   return response.text;
@@ -100,6 +110,7 @@ export const generateWithSearch = async (prompt: string): Promise<{ text: string
       contents: prompt,
       config: {
         tools: [{googleSearch: {}}],
+        systemInstruction: SYSTEM_INSTRUCTION,
       },
   });
   return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
@@ -116,7 +127,8 @@ export const generateWithMaps = async (prompt: string, location: {latitude: numb
                 retrievalConfig: {
                     latLng: location
                 }
-            }
+            },
+            systemInstruction: SYSTEM_INSTRUCTION,
         }
     });
     return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
