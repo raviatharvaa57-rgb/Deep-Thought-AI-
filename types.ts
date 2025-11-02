@@ -1,6 +1,5 @@
-
 export type Theme = 'light' | 'dark' | 'system';
-export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'zh' | 'ja' | 'ko' | 'ar' | 'hi';
+export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'zh' | 'ja' | 'ko' | 'ar' | 'hi' | 'ta' | 'gu';
 
 export interface User {
   firstName: string;
@@ -32,9 +31,8 @@ export enum ChatMode {
   EditImage = 'EDIT_IMAGE',
   AnalyzeImage = 'ANALYZE_IMAGE',
   AnalyzeVideo = 'ANALYZE_VIDEO',
-  Video = 'VIDEO',
-  ImageToVideo = 'IMAGE_TO_VIDEO',
   Live = 'LIVE',
+  Study = 'STUDY',
 }
 
 export interface GroundingChunk {
@@ -73,4 +71,3 @@ export interface ChatHistoryItem {
 }
 
 export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
-export type VideoAspectRatio = "16:9" | "9:16";

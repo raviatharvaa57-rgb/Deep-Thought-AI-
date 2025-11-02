@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { Language } from '../types';
 import { getTranslator, LANGUAGES } from '../services/i18n';
@@ -6,7 +5,7 @@ import { getTranslator, LANGUAGES } from '../services/i18n';
 interface LanguageContextType {
     language: Language;
     setLanguage: (language: Language) => void;
-    t: (key: string) => string;
+    t: (key: string, replacements?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);

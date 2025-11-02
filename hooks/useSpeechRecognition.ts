@@ -22,7 +22,8 @@ declare global {
 }
 
 
-const useSpeechRecognition = () => {
+// FIX: Accept a language parameter to be passed to the SpeechRecognition API.
+const useSpeechRecognition = (lang: string) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -38,6 +39,8 @@ const useSpeechRecognition = () => {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
+    // FIX: Set the language for the speech recognition instance.
+    recognition.lang = lang;
 
     recognition.onresult = (event) => {
       let finalTranscript = '';
@@ -64,7 +67,8 @@ const useSpeechRecognition = () => {
     };
 
     recognitionRef.current = recognition;
-  }, [isListening]);
+    // FIX: Add lang to the dependency array to re-initialize recognition if it changes.
+  }, [isListening, lang]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {

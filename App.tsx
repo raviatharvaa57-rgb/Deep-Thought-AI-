@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 import AuthScreen from './components/WelcomeScreen'; // Renamed semantically, file is WelcomeScreen.tsx
 import ProfileSetupModal from './components/ProfileSetupModal';
+import TermsOfServiceModal from './components/TermsOfServiceModal';
 import { Theme, User } from './types';
 import * as authService from './services/authService';
 import { generateAvatar } from './services/authService';
@@ -10,6 +11,7 @@ import { generateAvatar } from './services/authService';
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('system');
   const [user, setUser] = useState<User | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     try {
@@ -90,28 +92,44 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
+    setTermsAccepted(false); // Reset on logout
     localStorage.removeItem('currentUser');
     sessionStorage.removeItem('guestUser');
   };
   
   const handleUpdateUser = (updatedUser: User) => {
-    if (!user) return;
+    const isRegisteredUser = !!updatedUser.email;
 
-    setUser(updatedUser); // Update state immediately for responsiveness
-
-    if (user.email) { // Registered user
-        authService.updateUserInStorage(updatedUser);
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    } else { // Guest user
-        sessionStorage.setItem('guestUser', JSON.stringify(updatedUser));
+    if (isRegisteredUser) {
+      // For registered users, update the main user database and the current session.
+      authService.updateUserInStorage(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      // Clean up guest session storage to prevent conflicts.
+      sessionStorage.removeItem('guestUser');
+    } else {
+      // For guest users, only update the temporary session.
+      sessionStorage.setItem('guestUser', JSON.stringify(updatedUser));
+      // Clean up persistent user storage to prevent conflicts.
+      localStorage.removeItem('currentUser');
     }
+
+    // Update the state to reflect the change in the UI.
+    setUser(updatedUser);
+  };
+
+  const handleAcceptTerms = () => {
+    setTermsAccepted(true);
   };
 
   if (!user) {
     return <AuthScreen onLogin={handleLogin} onGuest={handleGuest} />;
   }
 
+  // New user onboarding flow
   if (user.isNewUser && user.email) {
+    if (!termsAccepted) {
+      return <TermsOfServiceModal onAccept={handleAcceptTerms} />;
+    }
     return <ProfileSetupModal user={user} onUpdateUser={handleUpdateUser} />;
   }
 

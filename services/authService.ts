@@ -105,7 +105,16 @@ export const login = async (email: string, password: string): Promise<User> => {
         return reject(new Error('Invalid email or password.'));
       }
       
-      const { password: _, ...userToReturn } = user;
+      const { password: _, ...userFromDb } = user;
+
+      // Explicitly handle the isNewUser flag for robustness.
+      // If a user has the flag set to true, they need to complete onboarding.
+      // Otherwise (false or undefined for legacy users), they are a returning user.
+      const userToReturn: User = {
+        ...userFromDb,
+        isNewUser: user.isNewUser === true
+      };
+      
       resolve(userToReturn);
     }, 500);
   });

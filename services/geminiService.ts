@@ -1,5 +1,5 @@
 import { GoogleGenAI, Chat, GenerateContentResponse, Type, Modality } from '@google/genai';
-import { GroundingChunk, AspectRatio, VideoAspectRatio } from '../types';
+import { GroundingChunk, AspectRatio, ChatMode } from '../types';
 
 let ai: GoogleGenAI;
 const chatSessions: Record<string, Chat> = {};
@@ -47,157 +47,241 @@ const fileToGenerativePart = async (file: File) => {
   };
 };
 
-export const analyzeImage = async (prompt: string, file: File): Promise<string> => {
-    const ai = getAI();
-    const imagePart = await fileToGenerativePart(file);
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: { parts: [{text: prompt}, imagePart] },
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-        }
-    });
-    return response.text;
-};
-
-export const analyzeVideo = async (prompt: string, file: File): Promise<string> => {
-    const ai = getAI();
-    const videoPart = await fileToGenerativePart(file);
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: { parts: [{text: prompt}, videoPart] },
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-        }
-    });
-    return response.text;
-};
-
-export const editImage = async (prompt: string, file: File): Promise<string> => {
-    const ai = getAI();
-    const imagePart = await fileToGenerativePart(file);
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { parts: [imagePart, {text: prompt}] },
-        config: {
-            responseModalities: [Modality.IMAGE],
-        },
-    });
-    const resultPart = response.candidates?.[0].content.parts[0];
-    if (resultPart && resultPart.inlineData) {
-        return `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
+const urlToGenerativePart = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch URL: ${response.statusText}`);
     }
-    throw new Error("Could not edit image.");
+    const blob = await response.blob();
+    const base64EncodedDataPromise = new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+    return {
+        inlineData: { data: await base64EncodedDataPromise, mimeType: blob.type },
+    };
 };
 
-export const generateWithThinking = async (prompt: string): Promise<string> => {
+const sourceToGenerativePart = (source: File | string) => {
+    return typeof source === 'string'
+        ? urlToGenerativePart(source)
+        : fileToGenerativePart(source);
+};
+
+
+export interface AiFeatureOptions {
+  prompt: string;
+  attachmentSource?: File | string;
+  location?: { latitude: number; longitude: number };
+  aspectRatio?: AspectRatio;
+}
+
+export interface AiFeatureResult {
+  text: string;
+  sources?: GroundingChunk[];
+  image?: string;
+}
+
+export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions): Promise<AiFeatureResult> => {
+    const ai = getAI();
+    const { prompt, attachmentSource, location, aspectRatio } = options;
+
+    switch (mode) {
+        case ChatMode.Study: {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: prompt,
+                config: {
+                    systemInstruction: "You are an expert educator and personal tutor. Your goal is to help the user understand complex topics. Adopt a patient, encouraging, and supportive tone. Break down concepts into simple, easy-to-understand explanations. Use analogies and real-world examples. Ask clarifying questions to check for understanding. Be a natural, friendly, and approachable teacher.",
+                }
+            });
+            return { text: response.text };
+        }
+        case ChatMode.Thinking: {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: prompt,
+                config: {
+                    thinkingConfig: { thinkingBudget: 32768 },
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                }
+            });
+            return { text: response.text };
+        }
+        case ChatMode.Search: {
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    tools: [{ googleSearch: {} }],
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                },
+            });
+            return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
+        }
+        case ChatMode.Maps: {
+            if (!location) throw new Error("Location is required for Maps mode.");
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    tools: [{ googleMaps: {} }],
+                    toolConfig: {
+                        retrievalConfig: { latLng: location }
+                    },
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                }
+            });
+            return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
+        }
+        case ChatMode.Imagine: {
+            if (!aspectRatio) throw new Error("Aspect ratio is required for Imagine mode.");
+            const response = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt,
+                config: {
+                    numberOfImages: 1,
+                    outputMimeType: 'image/png',
+                    aspectRatio,
+                },
+            });
+            const base64ImageBytes = response.generatedImages[0].image.imageBytes;
+            const imageUrl = `data:image/png;base64,${base64ImageBytes}`;
+            return { text: "Here is the image you requested.", image: imageUrl };
+        }
+        case ChatMode.AnalyzeImage: {
+            if (!attachmentSource) throw new Error('No image file provided for analysis.');
+            const imagePart = await sourceToGenerativePart(attachmentSource);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: { parts: [{ text: prompt }, imagePart] },
+                config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                }
+            });
+            return { text: response.text };
+        }
+        case ChatMode.AnalyzeVideo: {
+            if (!attachmentSource) throw new Error('No video file provided for analysis.');
+            const videoPart = await sourceToGenerativePart(attachmentSource);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: { parts: [{ text: prompt }, videoPart] },
+                config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                }
+            });
+            return { text: response.text };
+        }
+        case ChatMode.EditImage: {
+            if (!attachmentSource) throw new Error('An image file is required for editing.');
+            const imagePart = await sourceToGenerativePart(attachmentSource);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [imagePart, { text: prompt }] },
+                config: {
+                    responseModalities: [Modality.IMAGE],
+                },
+            });
+            const resultPart = response.candidates?.[0].content.parts[0];
+            if (resultPart && resultPart.inlineData) {
+                const imageUrl = `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}`;
+                return { text: "Here is the edited image.", image: imageUrl };
+            }
+            throw new Error("Could not edit image.");
+        }
+        default:
+            throw new Error(`Unsupported AI feature mode: ${mode}`);
+    }
+};
+
+export const summarizeText = async (text: string): Promise<string> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: prompt,
-      config: {
-          thinkingConfig: { thinkingBudget: 32768 },
-          systemInstruction: SYSTEM_INSTRUCTION,
-      }
+    model: 'gemini-2.5-pro',
+    contents: `Please provide a concise summary of the following text:\n\n---\n\n${text}`,
+    config: {
+      systemInstruction: SYSTEM_INSTRUCTION,
+    }
   });
   return response.text;
 };
 
-export const generateWithSearch = async (prompt: string): Promise<{ text: string, sources: GroundingChunk[] }> => {
+// --- TTS Service ---
+
+let ttsAudioContext: AudioContext | null = null;
+let ttsCurrentSource: AudioBufferSourceNode | null = null;
+let ttsOnEndCallback: (() => void) | null = null;
+
+const getTtsAudioContext = () => {
+    if (!ttsAudioContext || ttsAudioContext.state === 'closed') {
+        ttsAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    }
+    return ttsAudioContext;
+};
+
+const generateTtsAudioData = async (text: string): Promise<string> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{googleSearch: {}}],
-        systemInstruction: SYSTEM_INSTRUCTION,
-      },
-  });
-  return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
-};
-
-export const generateWithMaps = async (prompt: string, location: {latitude: number, longitude: number}): Promise<{ text: string, sources: GroundingChunk[] }> => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            tools: [{googleMaps: {}}],
-            toolConfig: {
-                retrievalConfig: {
-                    latLng: location
-                }
-            },
-            systemInstruction: SYSTEM_INSTRUCTION,
-        }
-    });
-    return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
-};
-
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-  const ai = getAI();
-  const response = await ai.models.generateImages({
-    model: 'imagen-4.0-generate-001',
-    prompt,
+    model: "gemini-2.5-flash-preview-tts",
+    contents: [{ parts: [{ text: `Say this naturally: ${text}` }] }],
     config: {
-      numberOfImages: 1,
-      outputMimeType: 'image/png',
-      aspectRatio,
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
+      },
     },
   });
-  const base64ImageBytes = response.generatedImages[0].image.imageBytes;
-  return `data:image/png;base64,${base64ImageBytes}`;
+
+  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!base64Audio) throw new Error("TTS generation failed.");
+  return base64Audio;
 };
 
-export const generateVideo = async (prompt: string, imageFile?: File, aspectRatio: VideoAspectRatio = '16:9'): Promise<string> => {
-  if (typeof (window as any).aistudio === 'undefined') {
-    throw new Error('AI Studio context not available. This feature requires the AI Studio environment.');
-  }
-  
-  const hasApiKey = await (window as any).aistudio.hasSelectedApiKey();
-  if (!hasApiKey) {
-    await (window as any).aistudio.openSelectKey();
-    // Re-check after the dialog is closed.
-    const newHasApiKey = await (window as any).aistudio.hasSelectedApiKey();
-    if (!newHasApiKey) {
-      throw new Error("Veo requires an API key. Please select one to proceed.");
+export const playTts = async (text: string, onPlaybackStateChange: (isPlaying: boolean) => void) => {
+    stopTts(); 
+    onPlaybackStateChange(true);
+
+    try {
+        const base64Audio = await generateTtsAudioData(text);
+        const context = getTtsAudioContext();
+        const audioBytes = decode(base64Audio);
+        const audioBuffer = await decodeAudioData(audioBytes, context, 24000, 1);
+      
+        const source = context.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(context.destination);
+
+        ttsOnEndCallback = () => {
+            onPlaybackStateChange(false);
+            ttsCurrentSource = null;
+            ttsOnEndCallback = null;
+        };
+        source.onended = ttsOnEndCallback;
+
+        source.start();
+        ttsCurrentSource = source;
+    } catch (e) {
+        console.error("Error playing TTS", e);
+        onPlaybackStateChange(false);
+        if (ttsOnEndCallback) {
+            ttsOnEndCallback();
+        }
     }
-  }
-
-  const aiWithSelectedKey = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  let imagePayload;
-  if (imageFile) {
-    const base64Data = (await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(imageFile);
-    }));
-    imagePayload = { imageBytes: base64Data, mimeType: imageFile.type };
-  }
-
-  let operation = await aiWithSelectedKey.models.generateVideos({
-    model: 'veo-3.1-fast-generate-preview',
-    prompt,
-    ...(imagePayload && { image: imagePayload }),
-    config: {
-      numberOfVideos: 1,
-      resolution: '720p',
-      aspectRatio,
-    }
-  });
-
-  while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    operation = await aiWithSelectedKey.operations.getVideosOperation({operation: operation});
-  }
-
-  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-  if (!downloadLink) throw new Error("Video generation failed to produce a link.");
-  
-  const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-  const videoBlob = await videoResponse.blob();
-  return URL.createObjectURL(videoBlob);
 };
+
+export const stopTts = () => {
+    if (ttsCurrentSource) {
+        ttsCurrentSource.onended = null; // Prevent callback firing on manual stop
+        ttsCurrentSource.stop();
+        if (ttsOnEndCallback) {
+            ttsOnEndCallback(); // Manually trigger cleanup
+        }
+    }
+};
+
 
 // Helper function to decode base64 string to Uint8Array
 function decode(base64: string): Uint8Array {
@@ -229,29 +313,3 @@ async function decodeAudioData(
   }
   return buffer;
 }
-
-export const generateTts = async (text: string): Promise<void> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: `Say this naturally: ${text}` }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-      },
-    },
-  });
-
-  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) throw new Error("TTS generation failed.");
-
-  const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-  const audioBytes = decode(base64Audio);
-  const audioBuffer = await decodeAudioData(audioBytes, outputAudioContext, 24000, 1);
-  
-  const source = outputAudioContext.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(outputAudioContext.destination);
-  source.start();
-};

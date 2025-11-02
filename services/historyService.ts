@@ -59,3 +59,37 @@ export const clearAllHistory = (user: User | null) => {
   // Remove the history list itself
   storage.removeItem(getHistoryKey(user));
 };
+
+export const deleteOldHistory = (user: User | null): ChatHistoryItem[] => {
+  const storage = getStorage(user);
+  const history = getHistory(user);
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+  const historyToDelete = history.filter(chat => chat.timestamp < thirtyDaysAgo);
+  const keptHistory = history.filter(chat => chat.timestamp >= thirtyDaysAgo);
+
+  // Remove individual chat message logs for old chats
+  for (const chatItem of historyToDelete) {
+    storage.removeItem(getChatKey(chatItem.id));
+  }
+
+  // Save the filtered history list
+  saveHistory(user, keptHistory);
+
+  return keptHistory;
+};
+
+export const deleteChat = (user: User | null, chatId: string): ChatHistoryItem[] => {
+  const storage = getStorage(user);
+  const history = getHistory(user);
+  
+  const updatedHistory = history.filter(chat => chat.id !== chatId);
+
+  // Remove individual chat message log for the deleted chat
+  storage.removeItem(getChatKey(chatId));
+
+  // Save the filtered history list
+  saveHistory(user, updatedHistory);
+
+  return updatedHistory;
+};

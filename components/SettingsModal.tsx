@@ -36,8 +36,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
     ];
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-xl w-full max-w-lg p-6 relative border border-light-border dark:border-dark-border" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-light-secondary-text dark:text-dark-secondary-text hover:text-light-text dark:hover:text-dark-text">
                     <XIcon className="w-6 h-6" />
                 </button>
@@ -54,7 +54,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
                                     onClick={() => setTheme(option.name)}
                                     className={`w-full flex justify-center items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                                         theme === option.name
-                                            ? 'bg-white dark:bg-dark-bg text-blue-700 dark:text-blue-400 shadow'
+                                            ? 'bg-light-bg dark:bg-dark-bg text-dark-accent shadow'
                                             : 'text-light-secondary-text dark:text-dark-secondary-text hover:bg-light-border dark:hover:bg-dark-border'
                                     }`}
                                 >
@@ -74,7 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
                         <select
                             value={language}
                             onChange={handleLanguageChange}
-                            className="w-full px-4 py-2 border border-light-border dark:border-dark-border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-light-input dark:bg-dark-input text-light-text dark:text-dark-text"
+                            className="w-full px-4 py-2 border border-light-border dark:border-dark-border rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent bg-light-input dark:bg-dark-input text-light-text dark:text-dark-text"
                         >
                             {LANGUAGES.map(lang => (
                                 <option key={lang.code} value={lang.code}>{lang.name}</option>
@@ -103,7 +103,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
                 </div>
 
                 <div className="mt-8 flex justify-end">
-                    <button onClick={onClose} className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
+                    <button onClick={onClose} className="px-6 py-2 bg-dark-accent text-white font-semibold rounded-lg shadow-md hover:bg-dark-accent-hover transition-colors">
                         {t('settings.done')}
                     </button>
                 </div>
