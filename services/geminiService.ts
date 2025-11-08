@@ -192,6 +192,16 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
             }
             throw new Error("Could not edit image.");
         }
+        case ChatMode.CodeAgent: {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: prompt,
+                config: {
+                    systemInstruction: "You are an expert Code Agent. Your purpose is to help users with all programming tasks. Before providing any code, you must internally review it for errors, think through potential edge cases, and simulate tests to ensure it is robust and functional. If you find any issues, you must fix them automatically. Your final output should be high-quality, error-free, and tested code. You can build full applications, debug code, explain complex concepts, and handle errors gracefully. Provide complete, runnable code snippets whenever possible. Structure your responses clearly with explanations and code blocks. When asked to build an app, provide all the necessary code in separate, clearly marked files.",
+                }
+            });
+            return { text: response.text };
+        }
         default:
             throw new Error(`Unsupported AI feature mode: ${mode}`);
     }

@@ -153,7 +153,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user }) => {
                 <img src={message.image} alt="Generated content" className="mt-2 rounded-lg max-w-sm" />
                 <button 
                     onClick={handleCopyImage} 
-                    className="absolute top-4 right-2 p-1.5 bg-black bg-opacity-60 rounded-md text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-4 right-2 p-1.5 bg-black bg-opacity-60 rounded-md text-white transition-opacity"
                     title="Copy Image"
                     aria-label="Copy Image"
                 >

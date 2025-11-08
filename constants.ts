@@ -73,10 +73,9 @@ export const SparklesIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     )
 );
 
-export const BrainCircuitIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+export const StudyIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 4.5a6.375 6.375 0 00-6.375 6.375c0 1.954.854 3.722 2.23 4.994V21h8.29v-5.132a6.376 6.376 0 002.23-4.994A6.375 6.375 0 0012 4.5z" }),
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M8.25 15.375a3 3 0 01-3-3m13.5 3a3 3 0 00-3-3M12 4.5V3m0 18v-1.5M4.5 12H3m18 0h-1.5M8.25 6.375l-.66.66M16.41 16.41l-.66.66M8.25 17.625l-.66-.66M16.41 7.035l-.66-.66" })
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" })
     )
 );
 export const SearchIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
@@ -84,16 +83,16 @@ export const SearchIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" })
     )
 );
-export const MapIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+export const MapPinIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 6.75V15m6-6v8.25m.5-11.25a.75.75 0 00-1.5 0v11.25a.75.75 0 001.5 0V4.5z" }),
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12.75 19.5v-1.5m4.5-12a.75.75 0 00-1.5 0v1.5m-3-4.5a.75.75 0 00-1.5 0v4.5m0-4.5a.75.75 0 00-1.5 0v1.5m3 10.5a.75.75 0 001.5 0v-1.5m-3-1.5a.75.75 0 00-1.5 0v1.5" }),
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 8.25l18-3.75v14.25l-18 3.75V8.25z" })
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" }),
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" })
     )
 );
-export const ImageIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+export const PaintBrushIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25z" })
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 19.82a2.25 2.25 0 01-1.06.632L5.41 21.64a.75.75 0 01-.918-.918l1.185-3.555a2.25 2.25 0 01.632-1.06l11.23-11.23z" }),
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12.75 15l3-3" })
     )
 );
 export const VideoIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
@@ -106,9 +105,25 @@ export const EditIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" })
     )
 );
-export const LiveIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+export const WaveformIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m12-3l-2.25-2.25a.75.75 0 00-1.06 0l-2.25 2.25M12 3l-2.25 2.25a.75.75 0 000 1.06l2.25 2.25m0-4.5l2.25 2.25a.75.75 0 010 1.06l-2.25 2.25M6 12l-2.25-2.25a.75.75 0 00-1.06 0L.44 12m17.12.01L21 12.25a.75.75 0 000-1.06l-2.25-2.25" })
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" })
+    )
+);
+export const EyeIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M2.036 12.322a1.012 1.012 0 010-.639l4.43-6.112a1.012 1.012 0 011.63 0l4.43 6.112a1.012 1.012 0 010 .639l-4.43 6.112a1.012 1.012 0 01-1.63 0l-4.43-6.112z" }),
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z" })
+    )
+);
+export const FilmIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3 8.25V6m0 2.25h18M3 10.5h18m-18 2.25h18m-18 2.25h18M3 15h18M3 17.25h18" })
+    )
+);
+export const CodeIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 15" })
     )
 );
 
@@ -120,7 +135,7 @@ export const UserCircleIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => 
 
 export const CameraIcon: React.FC<React.SVGProps<SVGSVGElement>> = props => (
     React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: "1.5", stroke: "currentColor", ...props },
-        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M6.827 6.175A2.21 2.21 0 015.186 7.75c-.294.059-.588.134-.882.231C3.001 8.44 2.25 9.495 2.25 10.669v7.082c0 1.174.75 2.23 1.804 2.693.44.183.901.328 1.366.444A2.21 2.21 0 017.75 21.814c.294-.059.588-.134.882-.231 1.293-.538 2.196-1.724 2.196-3.102V11.25a2.21 2.21 0 012.21-2.21c.294 0 .584.025.872.072a2.21 2.21 0 012.21 2.21v.579c0 .294-.025.584-.072.872a2.21 2.21 0 01-2.21 2.21h-.579c-.294 0-.584.025-.872.072a2.21 2.21 0 01-2.21 2.21v.579c0 1.378.903 2.564 2.196 3.102.294-.1.588-.176.882-.231a2.21 2.21 0 011.624-1.353c.465-.116.926-.26 1.366-.444 1.054-.463 1.804-1.52 1.804-2.693V10.67c0-1.174-.75-2.23-1.804-2.693-.44-.183-.901-.328-1.366-.444a2.21 2.21 0 01-1.624 1.353c-.294.059-.588.134-.882.231a2.21 2.21 0 01-2.21-2.21v-.579c0-1.378.903-2.564 2.196-3.102.294-.1.588-.176.882-.231a2.21 2.21 0 011.624 1.353c.465.116.926.26 1.366.444 1.054.463 1.804-1.52 1.804-2.693V7.75a2.21 2.21 0 01-2.21-2.21c-.294 0-.584-.025-.872-.072a2.21 2.21 0 01-2.21-2.21h-.579c-1.378 0-2.564.903-3.102 2.196-.1.294-.176.588-.231.882a2.21 2.21 0 01-1.353 1.624c-.116.465-.26.926-.444 1.366-.463 1.054-1.52 1.804-2.693 1.804H7.75a2.21 2.21 0 01-1.353-1.624z" }),
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M6.827 6.175A2.21 2.21 0 015.186 7.75c-.294.059-.588.134-.882.231C3.001 8.44 2.25 9.495 2.25 10.669v7.082c0 1.174.75 2.23 1.804 2.693.44.183.901.328 1.366.444A2.21 2.21 0 017.75 21.814c.294-.059.588-.134.882-.231 1.293-.538 2.196-1.724 2.196-3.102V11.25a2.21 2.21 0 012.21-2.21c.294 0 .584.025.872.072a2.21 2.21 0 012.21 2.21v.579c0 .294-.025.584-.072.872a2.21 2.21 0 01-2.21 2.21h-.579c-.294 0-.584.025-.872.072a2.21 2.21 0 01-2.21 2.21v.579c0 1.378.903 2.564 2.196 3.102.294-.1.588-.176.882-.231a2.21 2.21 0 011.624-1.353c.465-.116.926-.26 1.366-.444 1.054-.463 1.804-1.52 1.804-2.693V10.67c0-1.174-.75-2.23-1.804-2.693-.44-.183-.901-.328-1.366-.444a2.21 2.21 0 01-1.624 1.353c-.294.059-.588.134-.882-.231a2.21 2.21 0 01-2.21-2.21v-.579c0-1.378.903-2.564 2.196-3.102.294-.1.588-.176.882-.231a2.21 2.21 0 011.624 1.353c.465.116.926.26 1.366.444 1.054.463 1.804-1.52 1.804-2.693V7.75a2.21 2.21 0 01-2.21-2.21c-.294 0-.584-.025-.872-.072a2.21 2.21 0 01-2.21-2.21h-.579c-1.378 0-2.564.903-3.102 2.196-.1.294-.176.588-.231.882a2.21 2.21 0 01-1.353 1.624c-.116.465-.26.926-.444 1.366-.463 1.054-1.52 1.804-2.693 1.804H7.75a2.21 2.21 0 01-1.353-1.624z" }),
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M15.75 11.25a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" })
     )
 );
@@ -180,5 +195,11 @@ export const VolumeUpIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => 
 export const VolumeOffIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     React.createElement('svg', { ...props, fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor" },
         React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5 6L4.72 4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" })
+    )
+);
+
+export const BellIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    React.createElement('svg', { ...props, fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor" },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" })
     )
 );

@@ -7,15 +7,19 @@ import {
   MoreIcon, 
   LogoutIcon, 
   ChevronLeftIcon,
-  BrainCircuitIcon,
+  SparklesIcon,
   SearchIcon,
-  MapIcon,
-  ImageIcon,
-  LiveIcon,
+  MapPinIcon,
+  PaintBrushIcon,
+  EyeIcon,
+  FilmIcon,
+  WaveformIcon,
+  StudyIcon,
   UserCircleIcon,
   SettingsIcon,
   TrashIcon,
-  ShareIcon
+  ShareIcon,
+  CodeIcon,
 } from '../constants';
 import ProfileModal from './ProfileModal';
 import SettingsModal from './SettingsModal';
@@ -45,14 +49,15 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const aiFeatures = [
-    { label: t('sidebar.feature.study'), icon: BrainCircuitIcon, mode: ChatMode.Study },
-    { label: t('sidebar.feature.thinking'), icon: BrainCircuitIcon, mode: ChatMode.Thinking },
+    { label: t('sidebar.feature.study'), icon: StudyIcon, mode: ChatMode.Study },
+    { label: t('sidebar.feature.thinking'), icon: SparklesIcon, mode: ChatMode.Thinking },
     { label: t('sidebar.feature.search'), icon: SearchIcon, mode: ChatMode.Search },
-    { label: t('sidebar.feature.maps'), icon: MapIcon, mode: ChatMode.Maps },
-    { label: t('sidebar.feature.imagine'), icon: ImageIcon, mode: ChatMode.Imagine },
-    { label: t('sidebar.feature.analyzeImage'), icon: BrainCircuitIcon, mode: ChatMode.AnalyzeImage },
-    { label: t('sidebar.feature.analyzeVideo'), icon: BrainCircuitIcon, mode: ChatMode.AnalyzeVideo },
-    { label: t('sidebar.feature.live'), icon: LiveIcon, mode: ChatMode.Live },
+    { label: t('sidebar.feature.maps'), icon: MapPinIcon, mode: ChatMode.Maps },
+    { label: t('sidebar.feature.imagine'), icon: PaintBrushIcon, mode: ChatMode.Imagine },
+    { label: t('sidebar.feature.analyzeImage'), icon: EyeIcon, mode: ChatMode.AnalyzeImage },
+    { label: t('sidebar.feature.analyzeVideo'), icon: FilmIcon, mode: ChatMode.AnalyzeVideo },
+    { label: t('sidebar.feature.live'), icon: WaveformIcon, mode: ChatMode.Live },
+    { label: t('sidebar.feature.codeAgent'), icon: CodeIcon, mode: ChatMode.CodeAgent },
   ];
 
   return (

@@ -33,6 +33,7 @@ export enum ChatMode {
   AnalyzeVideo = 'ANALYZE_VIDEO',
   Live = 'LIVE',
   Study = 'STUDY',
+  CodeAgent = 'CODE_AGENT',
 }
 
 export interface GroundingChunk {
@@ -71,3 +72,10 @@ export interface ChatHistoryItem {
 }
 
 export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: number;
+}

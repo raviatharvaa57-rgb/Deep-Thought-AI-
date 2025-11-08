@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Message, User, Theme, ChatMode, AspectRatio } from '../types';
+import { Message, User, Theme, ChatMode, AspectRatio, Notification } from '../types';
 import ChatMessage from './ChatMessage';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
-import { SendIcon, MicIcon, AttachmentIcon, StopIcon, HamburgerIcon, SparklesIcon, EditIcon, BrainCircuitIcon, LiveIcon, ArrowUpTrayIcon, GrokIcon } from '../constants';
+import * as notificationService from '../services/notificationService';
+import { SendIcon, MicIcon, AttachmentIcon, StopIcon, HamburgerIcon, SparklesIcon, EditIcon, EyeIcon, FilmIcon, ArrowUpTrayIcon, GrokIcon, BellIcon } from '../constants';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import { useLanguage } from './LanguageProvider';
 import HelpGuide from './HelpGuide';
@@ -43,11 +44,15 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   const [fileError, setFileError] = useState<string | null>(null);
   const [showSummarize, setShowSummarize] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { t, language } = useLanguage();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevActiveModeRef = useRef<ChatMode>();
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const { transcript, isListening, startListening, stopListening } = useSpeechRecognition(language);
 
   const handleRemoveAttachment = () => {
@@ -58,6 +63,25 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
     }
   };
 
+  useEffect(() => {
+    setUnreadCount(notificationService.getUnreadCount());
+    setNotifications(notificationService.getNotifications());
+  }, []);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+            setIsNotificationsOpen(false);
+        }
+    };
+    if (isNotificationsOpen) {
+        document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotificationsOpen]);
+  
   useEffect(() => {
     const loadedMessages = historyService.getChatMessages(chatId, user);
     setMessages(loadedMessages);
@@ -81,6 +105,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         [ChatMode.AnalyzeImage]: t('chat.mode.analyzeImage'),
         [ChatMode.AnalyzeVideo]: t('chat.mode.analyzeVideo'),
         [ChatMode.Live]: t('chat.mode.live'),
+        [ChatMode.CodeAgent]: t('chat.mode.codeAgent'),
       };
       const messageText = modeMessages[activeMode];
 
@@ -181,6 +206,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         [ChatMode.Search]: 'chat.loading.search',
         [ChatMode.Maps]: 'chat.loading.maps',
         [ChatMode.Thinking]: 'chat.loading.thinking',
+        [ChatMode.CodeAgent]: 'chat.loading.codeAgent',
       };
       const loadingMessageKey = keyMap[currentMode];
       if (loadingMessageKey) {
@@ -353,6 +379,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
     const modeMap: Record<string, ChatMode> = { 
       '/study': ChatMode.Study, '/think': ChatMode.Thinking, '/search': ChatMode.Search, 
       '/maps': ChatMode.Maps, '/imagine': ChatMode.Imagine, '/live': ChatMode.Live,
+      '/code': ChatMode.CodeAgent,
     };
     if (modeMap[command]) handleModeChange(modeMap[command]);
   }, [handleModeChange]);
@@ -377,7 +404,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   };
 
   useEffect(() => {
-    const command = ['/study', '/think', '/search', '/maps', '/imagine', '/live'].find(c => c === input.trim());
+    const command = ['/study', '/think', '/search', '/maps', '/imagine', '/live', '/code'].find(c => c === input.trim());
     if (command) {
       if (!user.email) {
         const systemMessage: Message = { id: `msg-${Date.now()}-system`, role: 'system', text: 'AI features are available for signed-in users only. Please sign in to use commands.', isError: true };
@@ -409,6 +436,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         [ChatMode.EditImage]: 'chat.placeholder.editImage',
         [ChatMode.AnalyzeImage]: 'chat.placeholder.analyzeImage',
         [ChatMode.AnalyzeVideo]: 'chat.placeholder.analyzeVideo',
+        [ChatMode.CodeAgent]: 'chat.placeholder.codeAgent',
     };
 
     const key = placeholderKeyMap[activeMode] || 'chat.placeholder.url';
@@ -418,6 +446,38 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   const fileRequiredModes = [ChatMode.AnalyzeImage, ChatMode.EditImage, ChatMode.AnalyzeVideo];
   const isFileRequiredMode = fileRequiredModes.includes(activeMode);
   const isSendDisabled = isLoading || (!input.trim() && !attachedFile) || (isFileRequiredMode && !attachedFile);
+
+  const handleBellClick = () => {
+    setIsNotificationsOpen(prev => !prev);
+    if (unreadCount > 0) {
+        notificationService.markAllAsRead();
+        setUnreadCount(0);
+    }
+  };
+
+  const formatTimeAgo = useCallback((timestamp: number): string => {
+    const now = Date.now();
+    const seconds = Math.floor((now - timestamp) / 1000);
+
+    const intervals = [
+        { seconds: 31536000, singular: 'notifications.ago.year', plural: 'notifications.ago.years' },
+        { seconds: 2592000, singular: 'notifications.ago.month', plural: 'notifications.ago.months' },
+        { seconds: 86400, singular: 'notifications.ago.day', plural: 'notifications.ago.days' },
+        { seconds: 3600, singular: 'notifications.ago.hour', plural: 'notifications.ago.hours' },
+        { seconds: 60, singular: 'notifications.ago.minute', plural: 'notifications.ago.minutes' },
+    ];
+
+    for (const intervalInfo of intervals) {
+        const interval = seconds / intervalInfo.seconds;
+        if (interval >= 1) {
+            const count = Math.floor(interval);
+            const key = count >= 2 ? intervalInfo.plural : intervalInfo.singular;
+            return t(key, { count });
+        }
+    }
+
+    return t('notifications.ago.now');
+  }, [t]);
 
   return (
     <div className="relative flex flex-col h-full bg-light-bg dark:bg-dark-bg">
@@ -431,8 +491,41 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       )}
       <header className="flex items-center p-4 border-b border-light-border dark:border-dark-border">
         <button onClick={toggleSidebar} className="md:hidden mr-4 p-1"><HamburgerIcon className="w-6 h-6" /></button>
-        <GrokIcon className="w-8 h-8 mr-3 text-light-text dark:text-dark-text" />
-        <h1 className="text-lg font-semibold flex-1">{t('welcome.title')}</h1>
+        <div className="flex-1 flex items-center">
+            <GrokIcon className="w-8 h-8 mr-3 text-light-text dark:text-dark-text" />
+            <h1 className="text-lg font-semibold">{t('welcome.title')}</h1>
+        </div>
+        <div className="relative" ref={notificationsRef}>
+            <button onClick={handleBellClick} className="p-2 rounded-full hover:bg-light-input dark:hover:bg-dark-input transition-colors" aria-label="Notifications">
+                <BellIcon className="w-6 h-6 text-light-secondary-text dark:text-dark-secondary-text" />
+                {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 block w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-light-bg dark:border-dark-bg"></span>
+                )}
+            </button>
+
+            {isNotificationsOpen && (
+                <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-2xl border border-light-border dark:border-dark-border z-20 overflow-hidden">
+                    <div className="p-3 border-b border-light-border dark:border-dark-border">
+                        <h3 className="font-semibold text-light-text dark:text-dark-text">{t('notifications.title')}</h3>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                        {notifications.length > 0 ? (
+                            <ul>
+                                {notifications.map((notification) => (
+                                    <li key={notification.id} className="p-3 border-b border-light-border dark:border-dark-border last:border-b-0 hover:bg-light-input dark:hover:bg-dark-input cursor-default">
+                                        <p className="font-semibold text-sm text-light-text dark:text-dark-text">{notification.title}</p>
+                                        <p className="text-xs text-light-secondary-text dark:text-dark-secondary-text mt-1">{notification.message}</p>
+                                        <p className="text-xs text-light-secondary-text dark:text-dark-secondary-text mt-2 text-right">{formatTimeAgo(notification.timestamp)}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="p-4 text-center text-sm text-light-secondary-text dark:text-dark-secondary-text">{t('notifications.noNew')}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -464,11 +557,11 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
                 {user.email ? (
                     <>
                       {attachedFile.type === 'image' && <>
-                        <button onClick={() => setActiveMode(ChatMode.AnalyzeImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><BrainCircuitIcon className="w-4 h-4" />{t('chat.attachment.analyze')}</button>
+                        <button onClick={() => setActiveMode(ChatMode.AnalyzeImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><EyeIcon className="w-4 h-4" />{t('chat.attachment.analyze')}</button>
                         <button onClick={() => setActiveMode(ChatMode.EditImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.EditImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><EditIcon className="w-4 h-4" />{t('chat.attachment.edit')}</button>
                       </>}
                       {attachedFile.type === 'video' &&
-                        <button onClick={() => setActiveMode(ChatMode.AnalyzeVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeVideo ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><LiveIcon className="w-4 h-4" />{t('chat.attachment.analyzeVideo')}</button>
+                        <button onClick={() => setActiveMode(ChatMode.AnalyzeVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeVideo ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><FilmIcon className="w-4 h-4" />{t('chat.attachment.analyzeVideo')}</button>
                       }
                     </>
                 ) : (
