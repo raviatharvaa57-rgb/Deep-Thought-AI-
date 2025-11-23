@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Message, User, Theme, ChatMode, AspectRatio, Notification } from '../types';
+import { Message, User, Theme, ChatMode, AspectRatio, Notification, GroundingChunk } from '../types';
 import ChatMessage from './ChatMessage';
 import * as geminiService from '../services/geminiService';
 import * as historyService from '../services/historyService';
@@ -206,6 +206,16 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
     setShowSummarize(false);
     setFileError(null);
 
+    // FIX: Determine effective mode. If attachment exists but mode is Chat, switch to Analysis.
+    let effectiveMode = currentMode;
+    if (currentAttachment) {
+        if (currentAttachment.type === 'video' && effectiveMode !== ChatMode.AnalyzeVideo) {
+             effectiveMode = ChatMode.AnalyzeVideo;
+        } else if (currentAttachment.type === 'image' && ![ChatMode.AnalyzeImage, ChatMode.EditImage].includes(effectiveMode)) {
+             effectiveMode = ChatMode.AnalyzeImage;
+        }
+    }
+
     const aiMessageId = `msg-${Date.now()}-ai`;
     const aiMessagePlaceholder: Message = { id: aiMessageId, role: 'ai', text: '', isLoading: true };
     addMessage(aiMessagePlaceholder);
@@ -221,20 +231,22 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         [ChatMode.Thinking]: 'chat.loading.thinking',
         [ChatMode.CodeAgent]: 'chat.loading.codeAgent',
       };
-      const loadingMessageKey = keyMap[currentMode];
+      const loadingMessageKey = keyMap[effectiveMode];
       if (loadingMessageKey) {
           updateLastMessage({ text: t(loadingMessageKey), isLoading: true });
       }
 
       let result: geminiService.AiFeatureResult = { text: '' };
 
-      if (currentMode === ChatMode.Chat) {
+      if (effectiveMode === ChatMode.Chat) {
         let responseText = '';
-        for await (const chunk of geminiService.streamChatMessage(chatId, currentInput)) {
-          responseText += chunk;
-          updateLastMessage({ text: responseText, isLoading: true });
+        let responseSources: GroundingChunk[] | undefined;
+        for await (const chunk of geminiService.streamChatMessage(chatId, currentInput, user)) {
+          if (chunk.text) responseText += chunk.text;
+          if (chunk.sources) responseSources = chunk.sources;
+          updateLastMessage({ text: responseText, sources: responseSources, isLoading: true });
         }
-        result = { text: responseText };
+        result = { text: responseText, sources: responseSources };
       } else {
         const options: geminiService.AiFeatureOptions = {
           prompt: currentInput,
@@ -242,18 +254,18 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
           aspectRatio: aspectRatio,
         };
 
-        if (currentMode === ChatMode.Maps) {
+        if (effectiveMode === ChatMode.Maps) {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
           options.location = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         }
 
-        result = await geminiService.executeAiFeature(currentMode, options);
+        result = await geminiService.executeAiFeature(effectiveMode, options);
       }
       
       const { text: responseText, sources: responseSources, image: responseImage } = result;
       
       const needsSummary = responseText.length > AI_RESPONSE_SUMMARY_THRESHOLD &&
-                           [ChatMode.Chat, ChatMode.Study, ChatMode.Thinking, ChatMode.Search, ChatMode.Maps].includes(currentMode);
+                           [ChatMode.Chat, ChatMode.Study, ChatMode.Thinking, ChatMode.Search, ChatMode.Maps].includes(effectiveMode);
 
       if (needsSummary) {
         const textWithSummarizingMsg = `${responseText}\n\n---\n\n*${t('chat.summarizing')}*`;
@@ -274,19 +286,24 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      if (errorMessage.toLowerCase().includes('failed to fetch')) {
-        updateLastMessage({ text: t('chat.url.fetchError'), isLoading: false, isError: true });
-      } else {
-        updateLastMessage({ text: `Error: ${errorMessage}`, isLoading: false, isError: true });
+      
+      let friendlyError = `Error: ${errorMessage}`;
+      
+      if (errorMessage.includes('API key not valid') || errorMessage.includes('400') || errorMessage.includes('403')) {
+          friendlyError = `**API Key Error:** The API key is being rejected. \n\nIf you are hosting this on a website (like Vercel), please go to your **Google Cloud Console > Credentials** and ensure that your API Key restrictions allow this domain (${window.location.hostname}).`;
+      } else if (errorMessage.toLowerCase().includes('failed to fetch')) {
+        friendlyError = t('chat.url.fetchError');
       }
+
+      updateLastMessage({ text: friendlyError, isLoading: false, isError: true });
     } finally {
       setIsLoading(false);
       const oneShotModes = [ChatMode.Imagine, ChatMode.EditImage, ChatMode.AnalyzeImage, ChatMode.AnalyzeVideo];
-      if (oneShotModes.includes(currentMode)) {
+      if (oneShotModes.includes(effectiveMode)) {
         handleModeChange(ChatMode.Chat);
       }
     }
-  }, [messages.length, onChatCreated, chatId, aspectRatio, handleModeChange, t, addMessage, updateLastMessage]);
+  }, [messages.length, onChatCreated, chatId, aspectRatio, handleModeChange, t, addMessage, updateLastMessage, user]);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -111,7 +111,8 @@ export const signIn = async (email: string, password: string) => {
 
 export const logout = async () => {
     localStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem('guestUser');
+    // Explicitly clear all session storage. This deletes all guest history, chat messages, and guest profile data.
+    sessionStorage.clear();
     // Simulate delay
     await new Promise(resolve => setTimeout(resolve, 300));
 };

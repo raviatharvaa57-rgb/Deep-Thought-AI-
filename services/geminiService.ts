@@ -1,22 +1,27 @@
 
 import { GoogleGenAI, Chat, GenerateContentResponse, Type, Modality, FunctionDeclaration, Tool } from '@google/genai';
-import { GroundingChunk, AspectRatio, ChatMode } from '../types';
+import { GroundingChunk, AspectRatio, ChatMode, User } from '../types';
 import * as memoryService from './memoryService';
 
 let ai: GoogleGenAI;
 const chatSessions: Record<string, Chat> = {};
 
 // We dynamically build the system instruction to include memory
-const getBaseSystemInstruction = () => {
+const getBaseSystemInstruction = (user?: User) => {
     const memories = memoryService.getMemories();
-    const memoryContext = memories.length > 0 
+    let memoryContext = memories.length > 0 
         ? `\n\nHere are facts you remember about the user:\n- ${memories.join('\n- ')}\n\nUse this information to personalize your responses.` 
         : '';
     
+    // Add User Role awareness
+    if (user && user.isAdmin) {
+        memoryContext += "\n\nUser Context: You are speaking to an Administrator. You may acknowledge this status if relevant.";
+    }
+
     return `You are Deep Thought AI. The Founder of Deep Thought AI is Atharvaa Ravichandran. Deep Thought AI was designed by AtharvaaR Tech.
     
     Capabilities:
-    1. Web Search: You have full access to a real-time web search engine. You MUST use the 'webSearch' tool whenever the user asks about current events, news, weather, sports scores, or any information that might be outdated in your training data. Do not guess; search.
+    1. Web Search: You have full access to a real-time web search engine via the googleSearch tool. You MUST use it whenever the user asks about current events, news, weather, sports scores, or any information that might be outdated in your training data. Do not guess; search.
     2. Memory: You have a long-term memory. Use the 'remember' tool to save personal details the user shares (names, preferences, location).
     ${memoryContext}`;
 };
@@ -36,21 +41,6 @@ const rememberFunctionDeclaration: FunctionDeclaration = {
     },
 };
 
-const webSearchFunctionDeclaration: FunctionDeclaration = {
-  name: 'webSearch',
-  parameters: {
-    type: Type.OBJECT,
-    description: 'Searches the web for real-time information. Use this tool for current events, news, weather, or any topic where up-to-date information is required.',
-    properties: {
-      query: {
-        type: Type.STRING,
-        description: 'The search query to send to the search engine.',
-      },
-    },
-    required: ['query'],
-  },
-};
-
 const getAI = () => {
   if (!ai) {
     const apiKey = "AIzaSyAL1OcOuYlzV6_4s_Cco6Y9xFfJ1f5rtJE";
@@ -59,28 +49,33 @@ const getAI = () => {
   return ai;
 };
 
-const getChatSession = (chatId: string): Chat => {
+const getChatSession = (chatId: string, user?: User): Chat => {
   if (!chatSessions[chatId]) {
     const ai = getAI();
     chatSessions[chatId] = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {
-        systemInstruction: getBaseSystemInstruction(),
-        tools: [{ functionDeclarations: [rememberFunctionDeclaration, webSearchFunctionDeclaration] }],
+        systemInstruction: getBaseSystemInstruction(user),
+        // Enable both the custom remember tool and the native Google Search tool
+        tools: [
+            { functionDeclarations: [rememberFunctionDeclaration] },
+            { googleSearch: {} }
+        ],
       }
     });
   }
   return chatSessions[chatId];
 };
 
-export async function* streamChatMessage(chatId: string, message: string): AsyncGenerator<string> {
-  const chat = getChatSession(chatId);
+export async function* streamChatMessage(chatId: string, message: string, user?: User): AsyncGenerator<{ text: string, sources?: GroundingChunk[] }> {
+  const chat = getChatSession(chatId, user);
   
   // We need to handle potential tool calls in a loop
   let result = await chat.sendMessageStream({ message });
 
-  // This loop handles the case where the model calls a tool (like 'remember' or 'webSearch'),
+  // This loop handles the case where the model calls a tool (like 'remember'),
   // we execute it, send the result back, and then yield the final text response.
+  // Note: googleSearch is handled natively by the model, so we don't catch it here.
   while (true) {
       let functionCallFound = false;
       
@@ -100,26 +95,7 @@ export async function* streamChatMessage(chatId: string, message: string): Async
                         name: call.name,
                         response: { result: `Memory saved: "${fact}"` }
                     });
-                } else if (call.name === 'webSearch') {
-                    const query = call.args['query'] as string;
-                    // Execute the search using our existing search mode logic
-                    // We don't yield this intermediate step to the user to keep the stream clean,
-                    // but the AI will use the result to formulate its answer.
-                    try {
-                        const searchResult = await executeAiFeature(ChatMode.Search, { prompt: query });
-                        functionResponses.push({
-                            id: call.id,
-                            name: call.name,
-                            response: { result: `Search Results:\n${searchResult.text}` }
-                        });
-                    } catch (e) {
-                        functionResponses.push({
-                            id: call.id,
-                            name: call.name,
-                            response: { result: `Search failed: ${e instanceof Error ? e.message : 'Unknown error'}` }
-                        });
-                    }
-                }
+                } 
             }
 
             // Send tool response back to model to get the final text response
@@ -131,9 +107,12 @@ export async function* streamChatMessage(chatId: string, message: string): Async
             break; // Break the inner loop to process the new stream from the tool response
         }
         
-        // If it's just text, yield it
-        if (chunk.text) {
-            yield chunk.text;
+        // Yield text and sources if present
+        if (chunk.text || chunk.groundingMetadata) {
+            yield { 
+                text: chunk.text || '',
+                sources: chunk.groundingMetadata?.groundingChunks
+            };
         }
       }
 
@@ -262,9 +241,11 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
         case ChatMode.AnalyzeImage: {
             if (!attachmentSource) throw new Error('No image file provided for analysis.');
             const imagePart = await sourceToGenerativePart(attachmentSource);
+            // Default prompt if empty to satisfy content requirements
+            const textPart = prompt.trim() ? { text: prompt } : { text: "Describe this image." };
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-pro',
-                contents: { parts: [{ text: prompt }, imagePart] },
+                contents: { parts: [textPart, imagePart] },
                 config: {
                     systemInstruction: getBaseSystemInstruction(),
                 }
@@ -274,9 +255,11 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
         case ChatMode.AnalyzeVideo: {
             if (!attachmentSource) throw new Error('No video file provided for analysis.');
             const videoPart = await sourceToGenerativePart(attachmentSource);
+            // Default prompt if empty to satisfy content requirements
+            const textPart = prompt.trim() ? { text: prompt } : { text: "Describe this video." };
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-pro',
-                contents: { parts: [{ text: prompt }, videoPart] },
+                contents: { parts: [textPart, videoPart] },
                 config: {
                     systemInstruction: getBaseSystemInstruction(),
                 }

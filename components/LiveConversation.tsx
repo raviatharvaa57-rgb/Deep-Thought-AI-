@@ -468,7 +468,10 @@ const LiveConversation: React.FC<LiveConversationProps> = ({ onExit, user }) => 
                 },
                 onerror: (e: ErrorEvent) => {
                     console.error('Live API Error:', e);
-                    setDisplayText(t('live.error'));
+                    // Check for 403/400 which usually indicates API key domain restriction issues
+                    // The ErrorEvent type is generic, but often the internal error message logs to console.
+                    // We can give a hint to the user.
+                    setDisplayText('Error: Connection failed. If hosted, check API Key domain settings.');
                     cleanup();
                 },
                 onclose: (e: CloseEvent) => {

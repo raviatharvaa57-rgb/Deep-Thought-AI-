@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 import AuthScreen from './components/WelcomeScreen';
@@ -61,6 +62,9 @@ const App: React.FC = () => {
   }, []);
 
   const handleGuest = () => {
+    // Clear any previous guest data (history, chat logs) to ensure a clean start
+    sessionStorage.clear();
+
     const firstName = 'Guest';
     const lastName = 'User';
     const guestUser: User = { 
