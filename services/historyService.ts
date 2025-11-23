@@ -1,95 +1,73 @@
+import { ChatHistoryItem, Message } from '../types';
 
-import { User, ChatHistoryItem, Message } from '../types';
-
-const getStorage = (user: User | null): Storage => {
-  // Guests don't have an email property, their history is session-based.
-  // Registered users have persistent history in localStorage.
-  return user && user.email ? localStorage : sessionStorage;
-};
-
-const getHistoryKey = (user: User | null) => {
-    return user?.email ? `history_${user.email}` : 'history_guest';
-}
-
+const getHistoryKey = () => 'history_guest';
 const getChatKey = (chatId: string) => `chat_${chatId}`;
 
-export const getHistory = (user: User | null): ChatHistoryItem[] => {
+export const getHistory = (): ChatHistoryItem[] => {
   try {
-    const storage = getStorage(user);
-    const historyJson = storage.getItem(getHistoryKey(user));
+    const historyJson = sessionStorage.getItem(getHistoryKey());
     const history = historyJson ? JSON.parse(historyJson) : [];
-    // Sort by timestamp descending to show recent chats first
     return history.sort((a: ChatHistoryItem, b: ChatHistoryItem) => b.timestamp - a.timestamp);
   } catch (error) {
-    console.error("Failed to parse history from storage:", error);
+    console.error("Failed to parse guest history from storage:", error);
     return [];
   }
 };
 
-export const saveHistory = (user: User | null, history: ChatHistoryItem[]) => {
-  const storage = getStorage(user);
-  storage.setItem(getHistoryKey(user), JSON.stringify(history));
+export const saveHistory = (history: ChatHistoryItem[]) => {
+  sessionStorage.setItem(getHistoryKey(), JSON.stringify(history));
 };
 
-export const getChatMessages = (chatId: string, user: User | null): Message[] => {
+export const addOrUpdateChatHistory = (chatId: string, title: string) => {
+    const history = getHistory();
+    if (!history.some(item => item.id === chatId)) {
+        const newHistoryItem: ChatHistoryItem = { id: chatId, title, timestamp: Date.now() };
+        const updatedHistory = [newHistoryItem, ...history];
+        saveHistory(updatedHistory);
+    }
+};
+
+export const getChatMessages = (chatId: string): Message[] => {
   try {
-    const storage = getStorage(user);
-    const messagesJson = storage.getItem(getChatKey(chatId));
+    const messagesJson = sessionStorage.getItem(getChatKey(chatId));
     return messagesJson ? JSON.parse(messagesJson) : [];
   } catch (error) {
-    console.error(`Failed to parse messages for chat ${chatId}:`, error);
+    console.error(`Failed to parse guest messages for chat ${chatId}:`, error);
     return [];
   }
 };
 
-export const saveChatMessages = (chatId: string, messages: Message[], user: User | null) => {
-  const storage = getStorage(user);
-  storage.setItem(getChatKey(chatId), JSON.stringify(messages));
+export const saveChatMessages = (chatId: string, messages: Message[]) => {
+  sessionStorage.setItem(getChatKey(chatId), JSON.stringify(messages));
 };
 
-export const clearAllHistory = (user: User | null) => {
-  const storage = getStorage(user);
-  const history = getHistory(user); // Get all chat items
+export const saveMessage = (chatId: string, message: Message) => {
+    const messages = getChatMessages(chatId);
+    
+    // Check if message with same id already exists to avoid duplicates from updates
+    const existingIndex = messages.findIndex(m => m.id === message.id);
+    if (existingIndex > -1) {
+        messages[existingIndex] = message;
+    } else {
+        messages.push(message);
+    }
+    
+    saveChatMessages(chatId, messages);
+};
 
-  // Remove individual chat message logs
+
+export const clearAllHistory = () => {
+  const history = getHistory();
   for (const chatItem of history) {
-    storage.removeItem(getChatKey(chatItem.id));
+    sessionStorage.removeItem(getChatKey(chatItem.id));
   }
-
-  // Remove the history list itself
-  storage.removeItem(getHistoryKey(user));
+  sessionStorage.removeItem(getHistoryKey());
 };
 
-export const deleteOldHistory = (user: User | null): ChatHistoryItem[] => {
-  const storage = getStorage(user);
-  const history = getHistory(user);
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-  const historyToDelete = history.filter(chat => chat.timestamp < thirtyDaysAgo);
-  const keptHistory = history.filter(chat => chat.timestamp >= thirtyDaysAgo);
-
-  // Remove individual chat message logs for old chats
-  for (const chatItem of historyToDelete) {
-    storage.removeItem(getChatKey(chatItem.id));
-  }
-
-  // Save the filtered history list
-  saveHistory(user, keptHistory);
-
-  return keptHistory;
-};
-
-export const deleteChat = (user: User | null, chatId: string): ChatHistoryItem[] => {
-  const storage = getStorage(user);
-  const history = getHistory(user);
-  
+export const deleteChat = (chatId: string): ChatHistoryItem[] => {
+  let history = getHistory();
   const updatedHistory = history.filter(chat => chat.id !== chatId);
-
-  // Remove individual chat message log for the deleted chat
-  storage.removeItem(getChatKey(chatId));
-
-  // Save the filtered history list
-  saveHistory(user, updatedHistory);
-
+  sessionStorage.removeItem(getChatKey(chatId));
+  saveHistory(updatedHistory);
   return updatedHistory;
 };

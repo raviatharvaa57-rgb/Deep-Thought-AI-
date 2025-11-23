@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Theme, Language } from '../types';
-import { XIcon, SunIcon, MoonIcon, SystemIcon } from '../constants';
+import { XIcon, SunIcon, MoonIcon, SystemIcon, TrashIcon } from '../constants';
 import { useLanguage } from './LanguageProvider';
 import { LANGUAGES } from '../services/i18n';
+import * as memoryService from '../services/memoryService';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -15,6 +16,13 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, setTheme, onClearHistory }) => {
     const { language, setLanguage, t } = useLanguage();
+    const [memories, setMemories] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setMemories(memoryService.getMemories());
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -29,6 +37,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
         }
     };
 
+    const handleDeleteMemory = (index: number) => {
+        memoryService.deleteMemory(index);
+        setMemories(memoryService.getMemories());
+    };
+
     const themeOptions: { name: Theme; icon: React.FC<any>; label: string }[] = [
         { name: 'light', icon: SunIcon, label: t('settings.theme.light') },
         { name: 'dark', icon: MoonIcon, label: t('settings.theme.dark') },
@@ -37,7 +50,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-xl w-full max-w-lg p-6 relative border border-light-border dark:border-dark-border" onClick={e => e.stopPropagation()}>
+            <div className="bg-light-bg dark:bg-dark-sidebar rounded-lg shadow-xl w-full max-w-lg p-6 relative border border-light-border dark:border-dark-border max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-light-secondary-text dark:text-dark-secondary-text hover:text-light-text dark:hover:text-dark-text">
                     <XIcon className="w-6 h-6" />
                 </button>
@@ -80,6 +93,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, theme, s
                                 <option key={lang.code} value={lang.code}>{lang.name}</option>
                             ))}
                         </select>
+                    </div>
+
+                     {/* AI Memory Section */}
+                     <div>
+                        <h3 className="text-lg font-semibold mb-3 text-light-text dark:text-dark-text">AI Memory</h3>
+                        <p className="text-sm text-light-secondary-text dark:text-dark-secondary-text mb-3">
+                            The AI can remember facts about you to personalize your experience.
+                        </p>
+                        <div className="bg-light-input dark:bg-dark-input rounded-lg border border-light-border dark:border-dark-border max-h-40 overflow-y-auto">
+                            {memories.length > 0 ? (
+                                <ul className="divide-y divide-light-border dark:divide-dark-border">
+                                    {memories.map((fact, index) => (
+                                        <li key={index} className="flex justify-between items-center p-3 text-sm text-light-text dark:text-dark-text">
+                                            <span>{fact}</span>
+                                            <button 
+                                                onClick={() => handleDeleteMemory(index)} 
+                                                className="text-light-secondary-text dark:text-dark-secondary-text hover:text-red-500 dark:hover:text-red-400"
+                                                title="Delete memory"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="p-4 text-center text-sm text-light-secondary-text dark:text-dark-secondary-text italic">
+                                    No memories saved yet. Tell the AI about yourself!
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Data Management Section */}

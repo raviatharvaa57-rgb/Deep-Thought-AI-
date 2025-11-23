@@ -1,12 +1,15 @@
+
 export type Theme = 'light' | 'dark' | 'system';
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'zh' | 'ja' | 'ko' | 'ar' | 'hi' | 'ta' | 'gu';
 
+// FIX: Added optional `email` for signed-in users and `isNewUser` for welcome messages.
 export interface User {
   firstName: string;
   lastName: string;
   avatar: string;
   email?: string;
   isNewUser?: boolean;
+  isAdmin?: boolean;
 }
 
 // Fix: Add types for Google Sign-In credential response and decoded JWT

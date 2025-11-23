@@ -7,7 +7,6 @@ import * as notificationService from '../services/notificationService';
 import { SendIcon, MicIcon, AttachmentIcon, StopIcon, HamburgerIcon, SparklesIcon, EditIcon, EyeIcon, FilmIcon, ArrowUpTrayIcon, GrokIcon, BellIcon } from '../constants';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import { useLanguage } from './LanguageProvider';
-import HelpGuide from './HelpGuide';
 import WelcomeGuide from './WelcomeGuide';
 
 interface ChatViewProps {
@@ -51,9 +50,31 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const prevActiveModeRef = useRef<ChatMode>();
+  // Initialize with ChatMode.Chat to ensure it's never undefined in a way that causes issues
+  const prevActiveModeRef = useRef<ChatMode>(ChatMode.Chat); 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const { transcript, isListening, startListening, stopListening } = useSpeechRecognition(language);
+  
+  const isGuest = !user.email;
+
+  const addMessage = useCallback((message: Message) => {
+      setMessages(prev => [...prev, message]);
+      historyService.saveMessage(chatId, message);
+  }, [chatId]);
+  
+  const updateLastMessage = useCallback((update: Partial<Message>) => {
+      setMessages(prev => {
+          const newMessages = [...prev];
+          const lastIndex = newMessages.length - 1;
+          if (lastIndex >= 0) {
+              const updatedMessage = { ...newMessages[lastIndex], ...update };
+              newMessages[lastIndex] = updatedMessage;
+              historyService.saveChatMessages(chatId, newMessages);
+          }
+          return newMessages;
+      });
+  }, [chatId]);
+
 
   const handleRemoveAttachment = () => {
     setAttachedFile(null);
@@ -83,17 +104,15 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   }, [isNotificationsOpen]);
   
   useEffect(() => {
-    const loadedMessages = historyService.getChatMessages(chatId, user);
-    setMessages(loadedMessages);
-  }, [chatId, user]);
+    const loadMessages = async () => {
+        const loadedMessages = await historyService.getChatMessages(chatId);
+        setMessages(loadedMessages);
+    };
+    loadMessages();
+  }, [chatId]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      historyService.saveChatMessages(chatId, messages, user);
-    }
-  }, [messages, chatId, user]);
-
-  useEffect(() => {
+    // Only trigger system message if mode actually changed and it's a new session in that mode
     if (prevActiveModeRef.current !== activeMode && activeMode !== ChatMode.Chat) {
       const modeMessages: Partial<Record<ChatMode, string>> = {
         [ChatMode.Study]: t('chat.mode.study'),
@@ -111,11 +130,11 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
 
       if (messageText && messages.length === 0) {
         const systemMessage: Message = { id: `msg-${Date.now()}-system`, role: 'system', text: messageText };
-        setMessages(prev => [...prev, systemMessage]);
+        addMessage(systemMessage);
       }
     }
     prevActiveModeRef.current = activeMode;
-  }, [activeMode, t, messages.length]);
+  }, [activeMode, t, messages.length, addMessage]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -141,31 +160,27 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
     
     const textToSummarize = input;
     const userMessage: Message = { id: `msg-${Date.now()}`, role: 'user', text: t('chat.summarize.request') };
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
+    
     setIsLoading(true);
     setInput('');
     setShowSummarize(false);
     setFileError(null);
 
-    const aiMessageId = `msg-${Date.now()}-ai`;
-    const aiMessagePlaceholder: Message = { id: aiMessageId, role: 'ai', text: '', isLoading: true };
-    setMessages(prev => [...prev, aiMessagePlaceholder]);
-
-    const updateAIMessage = (update: Partial<Message>) => {
-      setMessages(prev => prev.map(m => m.id === aiMessageId ? { ...m, ...update } : m));
-    };
-
+    const aiMessagePlaceholder: Message = { id: `msg-${Date.now()}-ai`, role: 'ai', text: '', isLoading: true };
+    addMessage(aiMessagePlaceholder);
+    
     try {
       const summaryText = await geminiService.summarizeText(textToSummarize);
-      updateAIMessage({ text: summaryText, originalTextForTTS: summaryText, isLoading: false });
+      updateLastMessage({ text: summaryText, originalTextForTTS: summaryText, isLoading: false });
     } catch (error) {
       console.error("Error summarizing text:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      updateAIMessage({ text: `Error: ${errorMessage}`, isLoading: false, isError: true });
+      updateLastMessage({ text: `Error: ${errorMessage}`, isLoading: false, isError: true });
     } finally {
       setIsLoading(false);
     }
-  }, [input, messages.length, onChatCreated, chatId, t]);
+  }, [input, messages.length, onChatCreated, chatId, t, addMessage, updateLastMessage]);
 
   const handleSendMessage = useCallback(async (currentInput: string, currentMode: ChatMode, currentAttachment?: Attachment) => {
     if (!currentInput.trim() && !currentAttachment) return;
@@ -182,7 +197,8 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       image: currentAttachment?.type === 'image' ? currentAttachment.preview : undefined,
       video: currentAttachment?.type === 'video' ? currentAttachment.preview : undefined
     };
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
+
     setIsLoading(true);
     setInput('');
     setAttachedFile(null);
@@ -191,11 +207,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
 
     const aiMessageId = `msg-${Date.now()}-ai`;
     const aiMessagePlaceholder: Message = { id: aiMessageId, role: 'ai', text: '', isLoading: true };
-    setMessages(prev => [...prev, aiMessagePlaceholder]);
-
-    const updateAIMessage = (update: Partial<Message>) => {
-      setMessages(prev => prev.map(m => m.id === aiMessageId ? { ...m, ...update } : m));
-    };
+    addMessage(aiMessagePlaceholder);
 
     try {
       const keyMap: Partial<Record<ChatMode, string>> = {
@@ -210,7 +222,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       };
       const loadingMessageKey = keyMap[currentMode];
       if (loadingMessageKey) {
-          updateAIMessage({ text: t(loadingMessageKey), isLoading: true });
+          updateLastMessage({ text: t(loadingMessageKey), isLoading: true });
       }
 
       let result: geminiService.AiFeatureResult = { text: '' };
@@ -219,7 +231,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         let responseText = '';
         for await (const chunk of geminiService.streamChatMessage(chatId, currentInput)) {
           responseText += chunk;
-          updateAIMessage({ text: responseText, isLoading: true });
+          updateLastMessage({ text: responseText, isLoading: true });
         }
         result = { text: responseText };
       } else {
@@ -244,27 +256,27 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
 
       if (needsSummary) {
         const textWithSummarizingMsg = `${responseText}\n\n---\n\n*${t('chat.summarizing')}*`;
-        updateAIMessage({ text: textWithSummarizingMsg, originalTextForTTS: responseText, sources: responseSources, isLoading: true });
+        updateLastMessage({ text: textWithSummarizingMsg, originalTextForTTS: responseText, sources: responseSources, isLoading: true });
         
         try {
           const summary = await geminiService.summarizeText(responseText);
           const fullResponseWithSummary = `${responseText}\n\n---\n\n**✨ ${t('chat.summary.title')}**\n\n${summary}`;
-          updateAIMessage({ text: fullResponseWithSummary, originalTextForTTS: responseText, sources: responseSources, image: responseImage, isLoading: false });
+          updateLastMessage({ text: fullResponseWithSummary, originalTextForTTS: responseText, sources: responseSources, image: responseImage, isLoading: false });
         } catch (summaryError) {
           console.error("Error generating summary:", summaryError);
-          updateAIMessage({ text: responseText, originalTextForTTS: responseText, sources: responseSources, image: responseImage, isLoading: false });
+          updateLastMessage({ text: responseText, originalTextForTTS: responseText, sources: responseSources, image: responseImage, isLoading: false });
         }
       } else {
-        updateAIMessage({ text: responseText, originalTextForTTS: responseText, sources: responseSources, image: responseImage, isLoading: false });
+        updateLastMessage({ text: responseText, originalTextForTTS: responseText, sources: responseSources, image: responseImage, isLoading: false });
       }
 
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
       if (errorMessage.toLowerCase().includes('failed to fetch')) {
-        updateAIMessage({ text: t('chat.url.fetchError'), isLoading: false, isError: true });
+        updateLastMessage({ text: t('chat.url.fetchError'), isLoading: false, isError: true });
       } else {
-        updateAIMessage({ text: `Error: ${errorMessage}`, isLoading: false, isError: true });
+        updateLastMessage({ text: `Error: ${errorMessage}`, isLoading: false, isError: true });
       }
     } finally {
       setIsLoading(false);
@@ -273,7 +285,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         handleModeChange(ChatMode.Chat);
       }
     }
-  }, [messages.length, onChatCreated, chatId, aspectRatio, handleModeChange, t]);
+  }, [messages.length, onChatCreated, chatId, aspectRatio, handleModeChange, t, addMessage, updateLastMessage]);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,6 +320,12 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   }, [t, setActiveMode]);
 
   const handleFileUpload = useCallback((files: FileList | null) => {
+    if (isGuest) {
+        setFileError(t('chat.attachment.guest'));
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+    }
+
     if (!files || files.length === 0) return;
     setFileError(null);
     const file = files[0];
@@ -354,7 +372,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       setFileError(t('chat.file.uploadFailed'));
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [t, setActiveMode]);
+  }, [t, setActiveMode, isGuest]);
   
   useEffect(() => {
     const dragCounter = { current: 0 };
@@ -375,6 +393,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   }, [handleFileUpload]);
 
   const handleCommand = useCallback((command: string) => {
+    if (isGuest) return;
     setInput('');
     const modeMap: Record<string, ChatMode> = { 
       '/study': ChatMode.Study, '/think': ChatMode.Thinking, '/search': ChatMode.Search, 
@@ -382,18 +401,25 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       '/code': ChatMode.CodeAgent,
     };
     if (modeMap[command]) handleModeChange(modeMap[command]);
-  }, [handleModeChange]);
+  }, [handleModeChange, isGuest]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const currentInput = e.target.value;
     setInput(currentInput);
     const isLongEnough = currentInput.trim().length > SUMMARIZE_THRESHOLD;
     const isSummarizableMode = activeMode === ChatMode.Chat || activeMode === ChatMode.Study;
-    const isUserLoggedIn = !!user.email;
-    setShowSummarize(isLongEnough && isSummarizableMode && isUserLoggedIn);
+    setShowSummarize(isLongEnough && isSummarizableMode);
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    // 1. Handle Files (e.g. Screenshots/Images from clipboard)
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+        e.preventDefault();
+        handleFileUpload(e.clipboardData.files);
+        return;
+    }
+
+    // 2. Handle Text containing Image URLs
     const pastedText = e.clipboardData.getData('text');
     const URL_REGEX = /^(https?:\/\/[^\s]+?\.(?:jpg|jpeg|gif|png|webp|mp4|mov|avi|webm))/i;
     const match = pastedText.trim().match(URL_REGEX);
@@ -406,15 +432,9 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
   useEffect(() => {
     const command = ['/study', '/think', '/search', '/maps', '/imagine', '/live', '/code'].find(c => c === input.trim());
     if (command) {
-      if (!user.email) {
-        const systemMessage: Message = { id: `msg-${Date.now()}-system`, role: 'system', text: 'AI features are available for signed-in users only. Please sign in to use commands.', isError: true };
-        setMessages(prev => [...prev, systemMessage]);
-        setInput('');
-        return;
-      }
       handleCommand(command);
     }
-  }, [input, user.email, handleCommand]);
+  }, [input, handleCommand]);
   
   const renderAspectRatioSelector = (options: string[], selected: string, setter: (val: any) => void) => (
     <div className="mb-2 flex items-center justify-center gap-2 flex-wrap">
@@ -530,11 +550,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {messages.length === 0 ? (
-            user.email ? (
-                <WelcomeGuide user={user} onExampleClick={handleExampleClick} />
-            ) : (
-                <HelpGuide />
-            )
+            <WelcomeGuide user={user} onExampleClick={handleExampleClick} />
         ) : (
             <div className="space-y-6">
                 {messages.map((message) => <ChatMessage key={message.id} message={message} user={user} />)}
@@ -544,7 +560,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
       </div>
 
       <div className="p-4 md:p-6 border-t border-light-border dark:border-dark-border">
-        {user.email && activeMode === ChatMode.Imagine && renderAspectRatioSelector(['1:1', '16:9', '9:16', '4:3', '3:4'], aspectRatio, setAspectRatio)}
+        {activeMode === ChatMode.Imagine && renderAspectRatioSelector(['1:1', '16:9', '9:16', '4:3', '3:4'], aspectRatio, setAspectRatio)}
         
         {attachedFile && (
           <div className="relative mb-2 p-2 bg-light-input dark:bg-dark-input rounded-lg flex items-center gap-4">
@@ -554,19 +570,15 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
               <video src={attachedFile.preview} className="w-16 h-16 object-cover rounded-md bg-black" muted playsInline />
             )}
             <div className="flex-1 flex flex-wrap gap-2">
-                {user.email ? (
-                    <>
-                      {attachedFile.type === 'image' && <>
-                        <button onClick={() => setActiveMode(ChatMode.AnalyzeImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><EyeIcon className="w-4 h-4" />{t('chat.attachment.analyze')}</button>
-                        <button onClick={() => setActiveMode(ChatMode.EditImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.EditImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><EditIcon className="w-4 h-4" />{t('chat.attachment.edit')}</button>
-                      </>}
-                      {attachedFile.type === 'video' &&
-                        <button onClick={() => setActiveMode(ChatMode.AnalyzeVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeVideo ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><FilmIcon className="w-4 h-4" />{t('chat.attachment.analyzeVideo')}</button>
-                      }
-                    </>
-                ) : (
-                    <p className="text-sm text-light-secondary-text dark:text-dark-secondary-text p-1">{t('chat.attachment.guest')}</p>
-                )}
+                <>
+                  {attachedFile.type === 'image' && <>
+                    <button onClick={() => setActiveMode(ChatMode.AnalyzeImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><EyeIcon className="w-4 h-4" />{t('chat.attachment.analyze')}</button>
+                    <button onClick={() => setActiveMode(ChatMode.EditImage)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.EditImage ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><EditIcon className="w-4 h-4" />{t('chat.attachment.edit')}</button>
+                  </>}
+                  {attachedFile.type === 'video' &&
+                    <button onClick={() => setActiveMode(ChatMode.AnalyzeVideo)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${activeMode === ChatMode.AnalyzeVideo ? 'bg-dark-accent text-white' : 'bg-light-border dark:bg-dark-border'}`}><FilmIcon className="w-4 h-4" />{t('chat.attachment.analyzeVideo')}</button>
+                  }
+                </>
             </div>
             <button onClick={handleRemoveAttachment} className="absolute -top-2 -right-2 bg-gray-700 text-white rounded-full p-1 w-6 h-6 flex items-center justify-center text-xs">&times;</button>
           </div>
@@ -584,7 +596,13 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
 
         <form onSubmit={handleFormSubmit}>
           <div className="relative flex items-center w-full bg-light-input dark:bg-dark-input rounded-2xl p-2 focus-within:ring-2 focus-within:ring-dark-accent">
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-light-secondary-text dark:text-dark-secondary-text hover:text-dark-accent"><AttachmentIcon className="w-6 h-6" /></button>
+            <button type="button" onClick={() => {
+                if (isGuest) {
+                    setFileError(t('chat.attachment.guest'));
+                } else {
+                    fileInputRef.current?.click();
+                }
+            }} className="p-2 text-light-secondary-text dark:text-dark-secondary-text hover:text-dark-accent"><AttachmentIcon className="w-6 h-6" /></button>
             <input type="file" ref={fileInputRef} onChange={(e) => handleFileUpload(e.target.files)} className="hidden" accept="image/*,video/*" />
             
             <input type="text" value={input} onChange={handleInputChange} onPaste={handlePaste} placeholder={getPlaceholderText()} className="flex-1 bg-transparent focus:outline-none px-2 text-light-text dark:text-dark-text" disabled={isLoading} />

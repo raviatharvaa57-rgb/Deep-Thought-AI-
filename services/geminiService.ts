@@ -1,16 +1,40 @@
-import { GoogleGenAI, Chat, GenerateContentResponse, Type, Modality } from '@google/genai';
+
+import { GoogleGenAI, Chat, GenerateContentResponse, Type, Modality, FunctionDeclaration, Tool } from '@google/genai';
 import { GroundingChunk, AspectRatio, ChatMode } from '../types';
+import * as memoryService from './memoryService';
 
 let ai: GoogleGenAI;
 const chatSessions: Record<string, Chat> = {};
-const SYSTEM_INSTRUCTION = 'You are Deep Thought AI. If asked, the CEO of Deep Thought AI is Atharvaa Ravichandran.';
+
+// We dynamically build the system instruction to include memory
+const getBaseSystemInstruction = () => {
+    const memories = memoryService.getMemories();
+    const memoryContext = memories.length > 0 
+        ? `\n\nHere are facts you remember about the user:\n- ${memories.join('\n- ')}\n\nUse this information to personalize your responses.` 
+        : '';
+    
+    return `You are Deep Thought AI. If asked, the CEO of Deep Thought AI is Atharvaa Ravichandran.${memoryContext}`;
+};
+
+const rememberFunctionDeclaration: FunctionDeclaration = {
+    name: 'remember',
+    parameters: {
+      type: Type.OBJECT,
+      description: 'Save a specific fact about the user to your long-term memory. Use this when the user tells you something personal like their name, preferences, location, or specific details they want you to remember.',
+      properties: {
+        fact: {
+          type: Type.STRING,
+          description: 'The fact to remember (e.g., "User lives in Paris", "User likes Python").',
+        },
+      },
+      required: ['fact'],
+    },
+};
 
 const getAI = () => {
   if (!ai) {
-    if (!process.env.API_KEY) {
-      throw new Error("API_KEY environment variable not set");
-    }
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = "AIzaSyAL1OcOuYlzV6_4s_Cco6Y9xFfJ1f5rtJE";
+    ai = new GoogleGenAI({ apiKey });
   }
   return ai;
 };
@@ -21,7 +45,8 @@ const getChatSession = (chatId: string): Chat => {
     chatSessions[chatId] = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction: getBaseSystemInstruction(),
+        tools: [{ functionDeclarations: [rememberFunctionDeclaration] }],
       }
     });
   }
@@ -30,9 +55,53 @@ const getChatSession = (chatId: string): Chat => {
 
 export async function* streamChatMessage(chatId: string, message: string): AsyncGenerator<string> {
   const chat = getChatSession(chatId);
-  const result = await chat.sendMessageStream({ message });
-  for await (const chunk of result) {
-    yield chunk.text;
+  
+  // We need to handle potential tool calls in a loop
+  let result = await chat.sendMessageStream({ message });
+
+  // This loop handles the case where the model calls a tool (like 'remember'),
+  // we execute it, send the result back, and then yield the final text response.
+  while (true) {
+      let functionCallFound = false;
+      
+      for await (const chunk of result) {
+        // Check for function calls
+        const functionCalls = chunk.functionCalls;
+        if (functionCalls && functionCalls.length > 0) {
+            functionCallFound = true;
+            const functionResponses = [];
+            
+            for (const call of functionCalls) {
+                if (call.name === 'remember') {
+                    const fact = call.args['fact'] as string;
+                    memoryService.addMemory(fact);
+                    functionResponses.push({
+                        id: call.id,
+                        name: call.name,
+                        response: { result: `Memory saved: "${fact}"` }
+                    });
+                }
+            }
+
+            // Send tool response back to model to get the final text response
+            if (functionResponses.length > 0) {
+                 result = await chat.sendMessageStream({
+                    functionResponses: functionResponses
+                 });
+            }
+            break; // Break the inner loop to process the new stream from the tool response
+        }
+        
+        // If it's just text, yield it
+        if (chunk.text) {
+            yield chunk.text;
+        }
+      }
+
+      // If we didn't find a function call in the entire stream, we are done.
+      if (!functionCallFound) {
+          break;
+      }
   }
 }
 
@@ -94,7 +163,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
                 model: 'gemini-2.5-pro',
                 contents: prompt,
                 config: {
-                    systemInstruction: "You are an expert educator and personal tutor. Your goal is to help the user understand complex topics. Adopt a patient, encouraging, and supportive tone. Break down concepts into simple, easy-to-understand explanations. Use analogies and real-world examples. Ask clarifying questions to check for understanding. Be a natural, friendly, and approachable teacher.",
+                    systemInstruction: `You are an expert educator and personal tutor. Your goal is to help the user understand complex topics. Adopt a patient, encouraging, and supportive tone. Break down concepts into simple, easy-to-understand explanations. Use analogies and real-world examples. Ask clarifying questions to check for understanding. Be a natural, friendly, and approachable teacher.\n${getBaseSystemInstruction()}`,
                 }
             });
             return { text: response.text };
@@ -105,7 +174,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
                 contents: prompt,
                 config: {
                     thinkingConfig: { thinkingBudget: 32768 },
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    systemInstruction: getBaseSystemInstruction(),
                 }
             });
             return { text: response.text };
@@ -116,7 +185,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
                 contents: prompt,
                 config: {
                     tools: [{ googleSearch: {} }],
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    systemInstruction: getBaseSystemInstruction(),
                 },
             });
             return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
@@ -131,7 +200,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
                     toolConfig: {
                         retrievalConfig: { latLng: location }
                     },
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    systemInstruction: getBaseSystemInstruction(),
                 }
             });
             return { text: response.text, sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] };
@@ -158,7 +227,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
                 model: 'gemini-2.5-pro',
                 contents: { parts: [{ text: prompt }, imagePart] },
                 config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    systemInstruction: getBaseSystemInstruction(),
                 }
             });
             return { text: response.text };
@@ -170,7 +239,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
                 model: 'gemini-2.5-pro',
                 contents: { parts: [{ text: prompt }, videoPart] },
                 config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    systemInstruction: getBaseSystemInstruction(),
                 }
             });
             return { text: response.text };
@@ -194,10 +263,11 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
         }
         case ChatMode.CodeAgent: {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-pro',
+                model: 'gemini-3-pro-preview',
                 contents: prompt,
                 config: {
-                    systemInstruction: "You are an expert Code Agent. Your purpose is to help users with all programming tasks. Before providing any code, you must internally review it for errors, think through potential edge cases, and simulate tests to ensure it is robust and functional. If you find any issues, you must fix them automatically. Your final output should be high-quality, error-free, and tested code. You can build full applications, debug code, explain complex concepts, and handle errors gracefully. Provide complete, runnable code snippets whenever possible. Structure your responses clearly with explanations and code blocks. When asked to build an app, provide all the necessary code in separate, clearly marked files.",
+                    thinkingConfig: { thinkingBudget: 32768 },
+                    systemInstruction: `You are an expert Code Agent. Your purpose is to help users with all programming tasks. Before providing any code, you must internally review it for errors, think through potential edge cases, and simulate tests to ensure it is robust and functional. If you find any issues, you must fix them automatically. Your final output should be high-quality, error-free, and tested code. You can build full applications, debug code, explain complex concepts, and handle errors gracefully. Provide complete, runnable code snippets whenever possible. Structure your responses clearly with explanations and code blocks. When asked to build an app, provide all the necessary code in separate, clearly marked files.\n${getBaseSystemInstruction()}`,
                 }
             });
             return { text: response.text };
@@ -213,7 +283,7 @@ export const summarizeText = async (text: string): Promise<string> => {
     model: 'gemini-2.5-pro',
     contents: `Please provide a concise summary of the following text:\n\n---\n\n${text}`,
     config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: getBaseSystemInstruction(),
     }
   });
   return response.text;

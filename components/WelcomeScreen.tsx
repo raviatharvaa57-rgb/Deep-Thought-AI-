@@ -1,112 +1,163 @@
-
 import React, { useState } from 'react';
 import { GrokIcon } from '../constants';
-import { User } from '../types';
-import * as authService from '../services/authService';
 import { useLanguage } from './LanguageProvider';
+import * as authService from '../services/authService';
 
 interface AuthScreenProps {
-  onLogin: (user: User) => void;
   onGuest: () => void;
+  onLoginSuccess: () => void;
 }
 
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onGuest }) => {
+const AuthScreen: React.FC<AuthScreenProps> = ({ onGuest, onLoginSuccess }) => {
   const { t } = useLanguage();
-  const [isLoginView, setIsLoginView] = useState(true);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
+    setLoading(true);
+
     try {
-      let user: User;
-      if (isLoginView) {
-        user = await authService.login(email, password);
+      if (isLogin) {
+        const { error } = await authService.signIn(email, password);
+        if (error) throw new Error(error.message);
       } else {
-        user = await authService.signup(firstName, lastName, email, password);
+        if (!firstName || !lastName) {
+          throw new Error("First name and last name are required.");
+        }
+        const { error } = await authService.signUp(email, password, firstName, lastName);
+        if (error) throw new Error(error.message);
       }
-      onLogin(user);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+      // Notify parent to refresh session
+      onLoginSuccess();
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      setError(err.message || "An error occurred during authentication.");
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
-      <div className="text-center p-8 max-w-md mx-auto w-full">
-        <div className="inline-block p-4 rounded-full mb-6">
-           <GrokIcon className="w-16 h-16 text-light-text dark:text-dark-text" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text p-6 transition-colors duration-300">
+      <div className="w-full max-w-md bg-light-sidebar dark:bg-dark-sidebar p-8 rounded-3xl shadow-2xl border border-light-border dark:border-dark-border">
+        <div className="flex justify-center mb-8">
+           <div className="p-4 rounded-full bg-dark-bg dark:bg-light-bg bg-opacity-5 dark:bg-opacity-5 ring-1 ring-light-border dark:ring-dark-border">
+             <GrokIcon className="w-14 h-14 text-light-text dark:text-dark-text" />
+           </div>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold text-light-text dark:text-dark-text mb-2">{t('welcome.title')}</h1>
-        <p className="text-light-secondary-text dark:text-dark-secondary-text text-lg mb-8">
-          {isLoginView ? t('welcome.subtitle.login') : t('welcome.subtitle.signup')}
-        </p>
         
-        <div className="bg-light-sidebar dark:bg-dark-sidebar shadow-xl rounded-lg p-8">
-          <div className="flex justify-center mb-6 border-b border-light-border dark:border-dark-border">
-            <button onClick={() => { setIsLoginView(true); setError(null); }} className={`px-6 py-2 text-lg font-medium ${isLoginView ? 'border-b-2 border-dark-accent text-dark-accent' : 'text-light-secondary-text dark:text-dark-secondary-text'}`}>{t('login')}</button>
-            <button onClick={() => { setIsLoginView(false); setError(null); }} className={`px-6 py-2 text-lg font-medium ${!isLoginView ? 'border-b-2 border-dark-accent text-dark-accent' : 'text-light-secondary-text dark:text-dark-secondary-text'}`}>{t('signup')}</button>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLoginView && (
-              <div className="flex flex-col sm:flex-row gap-4">
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder={t('firstName')}
-                  required
-                  className="w-full px-4 py-3 border border-light-border dark:border-dark-border rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent bg-light-input dark:bg-dark-input text-light-text dark:text-dark-text"
-                />
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder={t('lastName')}
-                  required
-                  className="w-full px-4 py-3 border border-light-border dark:border-dark-border rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent bg-light-input dark:bg-dark-input text-light-text dark:text-dark-text"
-                />
-              </div>
-            )}
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('email')}
-              required
-              className="w-full px-4 py-3 border border-light-border dark:border-dark-border rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent bg-light-input dark:bg-dark-input text-light-text dark:text-dark-text"
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={t('password')}
-              required
-              className="w-full px-4 py-3 border border-light-border dark:border-dark-border rounded-md focus:outline-none focus:ring-2 focus:ring-dark-accent bg-light-input dark:bg-dark-input text-light-text dark:text-dark-text"
-            />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button 
-              type="submit"
-              className="w-full px-6 py-3 bg-dark-accent text-white font-semibold rounded-lg shadow-lg hover:bg-dark-accent-hover transition-transform transform hover:scale-105 mt-4"
-            >
-              {isLoginView ? t('login') : t('createAccount')}
-            </button>
-          </form>
-        </div>
+        <h1 className="text-3xl font-extrabold text-center mb-2 tracking-tight">{t('welcome.title')}</h1>
+        <p className="text-center text-light-secondary-text dark:text-dark-secondary-text mb-8 text-sm">
+          {isLogin ? t('welcome.subtitle.login') : t('welcome.subtitle.signup')}
+        </p>
 
-        <div className="mt-6">
-          <button 
-            onClick={onGuest}
-            className="text-dark-accent hover:underline"
+        {successMessage ? (
+           <div className="p-4 rounded-xl bg-green-500 bg-opacity-10 text-green-600 dark:text-green-400 text-center mb-6 border border-green-500/20">
+             {successMessage}
+             <button onClick={() => { setIsLogin(true); setSuccessMessage(null); }} className="block w-full mt-4 text-sm font-bold underline">Go to Login</button>
+           </div>
+        ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+            {!isLogin && (
+                <div className="flex gap-4">
+                <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-wide mb-1.5 text-light-secondary-text dark:text-dark-secondary-text">{t('firstName')}</label>
+                    <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-light-input dark:bg-dark-input border border-light-border dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-dark-accent transition-all"
+                    required
+                    placeholder="Jane"
+                    />
+                </div>
+                <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-wide mb-1.5 text-light-secondary-text dark:text-dark-secondary-text">{t('lastName')}</label>
+                    <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-light-input dark:bg-dark-input border border-light-border dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-dark-accent transition-all"
+                    required
+                    placeholder="Doe"
+                    />
+                </div>
+                </div>
+            )}
+
+            <div>
+                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5 text-light-secondary-text dark:text-dark-secondary-text">{t('email')}</label>
+                <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-light-input dark:bg-dark-input border border-light-border dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-dark-accent transition-all"
+                required
+                placeholder="you@example.com"
+                />
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold uppercase tracking-wide mb-1.5 text-light-secondary-text dark:text-dark-secondary-text">{t('password')}</label>
+                <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-light-input dark:bg-dark-input border border-light-border dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-dark-accent transition-all"
+                required
+                minLength={6}
+                placeholder="••••••••"
+                />
+            </div>
+
+            {error && (
+                <div className="p-3 rounded-xl bg-red-500 bg-opacity-10 text-red-600 dark:text-red-400 text-sm text-center border border-red-500/20">
+                {error}
+                </div>
+            )}
+
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 rounded-xl bg-dark-accent text-white font-bold hover:bg-dark-accent-hover transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-dark-accent/20"
+            >
+                {loading ? 'Processing...' : (isLogin ? t('login') : t('createAccount'))}
+            </button>
+            </form>
+        )}
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => { setIsLogin(!isLogin); setError(null); setSuccessMessage(null); }}
+            className="text-sm font-medium text-dark-accent hover:text-dark-accent-hover transition-colors"
           >
-            {t('continueAsGuest')}
+            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Log in"}
           </button>
         </div>
+
+        <div className="relative my-8">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-light-border dark:border-dark-border"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-3 bg-light-sidebar dark:bg-dark-sidebar text-light-secondary-text dark:text-dark-secondary-text font-medium">Or</span>
+          </div>
+        </div>
+        
+        <button 
+          onClick={onGuest}
+          className="w-full py-3 rounded-xl border-2 border-light-border dark:border-dark-border font-bold text-light-secondary-text dark:text-dark-secondary-text hover:border-dark-accent hover:text-dark-accent transition-all"
+        >
+          {t('continueAsGuest').replace('or ', '')}
+        </button>
       </div>
     </div>
   );

@@ -185,14 +185,16 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, user }) => {
           {renderContent()}
         </div>
         
-        {!isUser && !message.isLoading && !message.isError && (
-          <div className="mt-2 flex items-center gap-4 text-light-secondary-text dark:text-dark-secondary-text">
-            {message.originalTextForTTS && (
+        {!message.isLoading && !message.isError && (
+          <div className={`mt-2 flex items-center gap-4 text-light-secondary-text dark:text-dark-secondary-text ${isUser ? 'justify-end' : ''}`}>
+            
+            {!isUser && message.originalTextForTTS && (
               <button onClick={handleTTS} disabled={!message.originalTextForTTS} className="hover:text-dark-accent disabled:opacity-50" title={isPlaying ? "Stop" : "Listen to message"}>
                 {isPlaying ? <StopIcon className="w-5 h-5 text-red-500" /> : <SpeakerIcon className="w-5 h-5" />}
               </button>
             )}
-            <button onClick={handleCopy} className="hover:text-dark-accent">
+
+            <button onClick={handleCopy} className="hover:text-dark-accent" title="Copy text">
               {hasCopied ? <CheckIcon className="w-5 h-5 text-green-500" /> : <CopyIcon className="w-5 h-5" />}
             </button>
           </div>

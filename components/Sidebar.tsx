@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, ChatHistoryItem, ChatMode, Theme } from '../types';
 import { 
@@ -48,6 +49,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
+  const isGuest = !user.email;
+
   const aiFeatures = [
     { label: t('sidebar.feature.study'), icon: StudyIcon, mode: ChatMode.Study },
     { label: t('sidebar.feature.thinking'), icon: SparklesIcon, mode: ChatMode.Thinking },
@@ -77,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
             </button>
           </div>
 
-          {user.email && (
+          {!isGuest && (
             <div className="mb-6">
               <h2 className="px-2 text-xs font-semibold text-light-secondary-text dark:text-dark-secondary-text uppercase tracking-wider mb-2">{t('sidebar.aiFeatures')}</h2>
               <div className="space-y-1">
@@ -141,7 +144,12 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onNewChat, isSidebarOpen, setIs
                 className="flex items-center w-full p-2 text-sm text-light-text dark:text-dark-text rounded-md hover:bg-light-border dark:hover:bg-dark-border"
               >
                 <img src={user.avatar} alt="User" className="w-8 h-8 rounded-full mr-3" />
-                <span className="flex-1 text-left truncate">{`${user.firstName} ${user.lastName}`}</span>
+                <span className="flex-1 text-left truncate">
+                  {`${user.firstName} ${user.lastName}`}
+                  {user.isAdmin && (
+                    <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold text-white bg-blue-600 rounded-full align-middle">ADMIN</span>
+                  )}
+                </span>
                 <MoreIcon className="w-5 h-5" />
               </button>
               {showUserMenu && (

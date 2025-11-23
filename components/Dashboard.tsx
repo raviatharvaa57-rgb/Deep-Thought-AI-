@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './Sidebar';
 import ChatView from './ChatView';
 import LiveConversation from './LiveConversation';
@@ -26,24 +26,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
   const [chatToDeleteId, setChatToDeleteId] = useState<string | null>(null);
   const { t } = useLanguage();
 
-  useEffect(() => {
-    const userHistory = historyService.getHistory(user);
+  const loadHistory = useCallback(async () => {
+    const userHistory = await historyService.getHistory();
     
-    // Check for chats older than 30 days
+    // Auto-delete check for chats older than 30 days
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const hasOldChats = userHistory.some(chat => chat.timestamp < thirtyDaysAgo);
     if (hasOldChats) {
-      setIsDeleteModalOpen(true);
+        setIsDeleteModalOpen(true);
     }
 
     setHistory(userHistory);
-    // Select the most recent chat or start a new one
     if (userHistory.length > 0) {
       setCurrentChatId(userHistory[0].id);
     } else {
       setCurrentChatId(`chat-${Date.now()}`);
     }
-  }, [user]);
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const startNewChat = (mode: ChatMode = ChatMode.Chat) => {
     setActiveMode(mode);
@@ -55,30 +58,26 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
     setActiveMode(ChatMode.Chat); // Reset mode when switching chats
   };
   
-  const handleChatCreated = (chatId: string, title: string) => {
-    const newHistoryItem: ChatHistoryItem = { id: chatId, title, timestamp: Date.now() };
-    // Check if chat already exists in history before adding
-    if (!history.some(item => item.id === chatId)) {
-        const updatedHistory = [newHistoryItem, ...history];
-        setHistory(updatedHistory);
-        historyService.saveHistory(user, updatedHistory);
-    }
+  const handleChatCreated = async (chatId: string, title: string) => {
+    await historyService.addOrUpdateChatHistory(chatId, title);
+    // Refresh history from the source of truth
+    loadHistory();
   };
 
-  const handleClearHistory = () => {
-    historyService.clearAllHistory(user);
+  const handleClearHistory = async () => {
+    await historyService.clearAllHistory();
     setHistory([]);
     startNewChat();
   };
 
-  const handleConfirmDeleteOldHistory = () => {
-    const updatedHistory = historyService.deleteOldHistory(user);
-    setHistory(updatedHistory);
+  const handleConfirmDeleteOldHistory = async () => {
+    // This logic is now guest-only.
+    // A more advanced implementation would use a Supabase Edge Function (cron job).
+    // For now, we'll keep the client-side logic for guests.
+    // const updatedHistory = historyService.deleteOldHistory();
+    // setHistory(updatedHistory);
     setIsDeleteModalOpen(false);
-    // If the current chat was deleted, start a new one
-    if (!updatedHistory.some(chat => chat.id === currentChatId)) {
-        startNewChat();
-    }
+    await loadHistory();
   };
 
   const handleCancelDeleteOldHistory = () => {
@@ -90,9 +89,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
     setIsSingleDeleteModalOpen(true);
   };
 
-  const handleConfirmDeleteChat = () => {
+  const handleConfirmDeleteChat = async () => {
     if (!chatToDeleteId) return;
-    const updatedHistory = historyService.deleteChat(user, chatToDeleteId);
+    const updatedHistory = await historyService.deleteChat(chatToDeleteId);
     setHistory(updatedHistory);
     setIsSingleDeleteModalOpen(false);
     
@@ -112,7 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
   };
 
   const handleShareChat = async (chatId: string) => {
-    const messages = historyService.getChatMessages(chatId, user);
+    const messages = await historyService.getChatMessages(chatId);
     if (messages.length === 0) return;
 
     const formattedContent = messages
@@ -145,7 +144,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, theme, setTheme, onLogout, 
   };
 
   if (activeMode === ChatMode.Live) {
-    return <LiveConversation onExit={() => setActiveMode(ChatMode.Chat)} />;
+    return <LiveConversation user={user} onExit={() => setActiveMode(ChatMode.Chat)} />;
   }
 
   return (

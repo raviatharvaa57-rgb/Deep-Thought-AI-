@@ -1,9 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
-import AuthScreen from './components/WelcomeScreen'; // Renamed semantically, file is WelcomeScreen.tsx
-import ProfileSetupModal from './components/ProfileSetupModal';
-import TermsOfServiceModal from './components/TermsOfServiceModal';
+import AuthScreen from './components/WelcomeScreen';
 import { Theme, User } from './types';
 import * as authService from './services/authService';
 import { generateAvatar } from './services/authService';
@@ -11,34 +8,28 @@ import { generateAvatar } from './services/authService';
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('system');
   const [user, setUser] = useState<User | null>(null);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  useEffect(() => {
+  // Consolidated auth check logic
+  const checkUserSession = useCallback(async () => {
     try {
-      const persistentUserJSON = localStorage.getItem('currentUser');
-
-      if (persistentUserJSON && persistentUserJSON !== 'null') {
-        // Found a persistent user, this is the priority.
-        setUser(JSON.parse(persistentUserJSON));
-        // Clean up any stray guest session data to prevent conflicts.
-        sessionStorage.removeItem('guestUser');
-        return;
-      }
-
-      // No persistent user, check for a temporary guest session.
-      const guestUserJSON = sessionStorage.getItem('guestUser');
-      if (guestUserJSON && guestUserJSON !== 'null') {
-        setUser(JSON.parse(guestUserJSON));
-      }
-    } catch (error) {
-      console.error("Failed to parse user session from storage:", error);
-      // If parsing fails, clear everything to be safe.
-      localStorage.removeItem('currentUser');
-      sessionStorage.removeItem('guestUser');
-      setUser(null); // Ensure state is also cleared
+        const currentUser = await authService.getSessionUser();
+        setUser(currentUser);
+    } catch (e) {
+        console.error("Session check failed", e);
+    } finally {
+        setAuthLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    checkUserSession();
+  }, [checkUserSession]);
   
+  const handleLoginSuccess = useCallback(() => {
+    checkUserSession();
+  }, [checkUserSession]);
+
   useEffect(() => {
     const applyTheme = () => {
       const storedTheme = localStorage.getItem('theme') as Theme | null;
@@ -69,13 +60,6 @@ const App: React.FC = () => {
       }
   }, []);
 
-  const handleLogin = (loggedInUser: User) => {
-    // Persist registered user session and clear any guest session
-    localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
-    sessionStorage.removeItem('guestUser');
-    setUser(loggedInUser);
-  };
-
   const handleGuest = () => {
     const firstName = 'Guest';
     const lastName = 'User';
@@ -84,57 +68,36 @@ const App: React.FC = () => {
       lastName, 
       avatar: generateAvatar(firstName, lastName) 
     };
-    // Use temporary session for guests and clear any persistent login
     sessionStorage.setItem('guestUser', JSON.stringify(guestUser));
-    localStorage.removeItem('currentUser');
     setUser(guestUser);
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authService.logout();
     setUser(null);
-    setTermsAccepted(false); // Reset on logout
-    localStorage.removeItem('currentUser');
-    sessionStorage.removeItem('guestUser');
   };
   
-  const handleUpdateUser = (updatedUser: User) => {
-    const isRegisteredUser = !!updatedUser.email;
-
-    if (isRegisteredUser) {
-      // For registered users, update the main user database and the current session.
-      authService.updateUserInStorage(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      // Clean up guest session storage to prevent conflicts.
-      sessionStorage.removeItem('guestUser');
-    } else {
-      // For guest users, only update the temporary session.
-      sessionStorage.setItem('guestUser', JSON.stringify(updatedUser));
-      // Clean up persistent user storage to prevent conflicts.
-      localStorage.removeItem('currentUser');
-    }
-
-    // Update the state to reflect the change in the UI.
+  const handleUpdateUser = async (updatedUser: User) => {
+    await authService.updateUserProfile(updatedUser);
+    // Refresh local state immediately for responsiveness
     setUser(updatedUser);
   };
-
-  const handleAcceptTerms = () => {
-    setTermsAccepted(true);
-  };
-
-  if (!user) {
-    return <AuthScreen onLogin={handleLogin} onGuest={handleGuest} />;
+  
+  if (authLoading) {
+      return <div className="flex items-center justify-center min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text">
+          <div className="animate-pulse flex flex-col items-center">
+              <div className="h-12 w-12 bg-dark-accent rounded-full mb-4"></div>
+              <div className="h-4 w-32 bg-light-border dark:bg-dark-border rounded"></div>
+          </div>
+      </div>;
   }
 
-  // New user onboarding flow
-  if (user.isNewUser && user.email) {
-    if (!termsAccepted) {
-      return <TermsOfServiceModal onAccept={handleAcceptTerms} />;
-    }
-    return <ProfileSetupModal user={user} onUpdateUser={handleUpdateUser} />;
+  if (!user) {
+    return <AuthScreen onGuest={handleGuest} onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
-    <div className="bg-light-bg dark:bg-dark-bg min-h-screen text-light-text dark:text-dark-text font-sans">
+    <div className="bg-light-bg dark:bg-dark-bg min-h-screen text-light-text dark:text-dark-text font-sans transition-colors duration-300">
       <Dashboard user={user} theme={theme} setTheme={handleSetTheme} onLogout={handleLogout} onUpdateUser={handleUpdateUser} />
     </div>
   );
