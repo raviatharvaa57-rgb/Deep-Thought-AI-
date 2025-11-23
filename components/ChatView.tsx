@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Message, User, Theme, ChatMode, AspectRatio, Notification } from '../types';
 import ChatMessage from './ChatMessage';
@@ -302,7 +303,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         const img = new Image();
         img.onload = () => {
             setAttachedFile({ source: url, preview: url, type: 'image' });
-            setActiveMode(ChatMode.Chat);
+            setActiveMode(ChatMode.AnalyzeImage);
         };
         img.onerror = () => setFileError(t('chat.url.invalid'));
         img.src = url;
@@ -359,7 +360,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatId, user, theme, setTheme, togg
         if (isVideo) {
           setActiveMode(ChatMode.AnalyzeVideo);
         } else {
-          setActiveMode(ChatMode.Chat);
+          setActiveMode(ChatMode.AnalyzeImage);
         }
       };
       reader.onerror = () => {

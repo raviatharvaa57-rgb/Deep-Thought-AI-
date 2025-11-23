@@ -13,7 +13,12 @@ const getBaseSystemInstruction = () => {
         ? `\n\nHere are facts you remember about the user:\n- ${memories.join('\n- ')}\n\nUse this information to personalize your responses.` 
         : '';
     
-    return `You are Deep Thought AI. If asked, the CEO of Deep Thought AI is Atharvaa Ravichandran.${memoryContext}`;
+    return `You are Deep Thought AI. The Founder of Deep Thought AI is Atharvaa Ravichandran. Deep Thought AI was designed by AtharvaaR Tech.
+    
+    Capabilities:
+    1. Web Search: You have full access to a real-time web search engine. You MUST use the 'webSearch' tool whenever the user asks about current events, news, weather, sports scores, or any information that might be outdated in your training data. Do not guess; search.
+    2. Memory: You have a long-term memory. Use the 'remember' tool to save personal details the user shares (names, preferences, location).
+    ${memoryContext}`;
 };
 
 const rememberFunctionDeclaration: FunctionDeclaration = {
@@ -31,6 +36,21 @@ const rememberFunctionDeclaration: FunctionDeclaration = {
     },
 };
 
+const webSearchFunctionDeclaration: FunctionDeclaration = {
+  name: 'webSearch',
+  parameters: {
+    type: Type.OBJECT,
+    description: 'Searches the web for real-time information. Use this tool for current events, news, weather, or any topic where up-to-date information is required.',
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: 'The search query to send to the search engine.',
+      },
+    },
+    required: ['query'],
+  },
+};
+
 const getAI = () => {
   if (!ai) {
     const apiKey = "AIzaSyAL1OcOuYlzV6_4s_Cco6Y9xFfJ1f5rtJE";
@@ -46,7 +66,7 @@ const getChatSession = (chatId: string): Chat => {
       model: 'gemini-2.5-flash',
       config: {
         systemInstruction: getBaseSystemInstruction(),
-        tools: [{ functionDeclarations: [rememberFunctionDeclaration] }],
+        tools: [{ functionDeclarations: [rememberFunctionDeclaration, webSearchFunctionDeclaration] }],
       }
     });
   }
@@ -59,7 +79,7 @@ export async function* streamChatMessage(chatId: string, message: string): Async
   // We need to handle potential tool calls in a loop
   let result = await chat.sendMessageStream({ message });
 
-  // This loop handles the case where the model calls a tool (like 'remember'),
+  // This loop handles the case where the model calls a tool (like 'remember' or 'webSearch'),
   // we execute it, send the result back, and then yield the final text response.
   while (true) {
       let functionCallFound = false;
@@ -80,6 +100,25 @@ export async function* streamChatMessage(chatId: string, message: string): Async
                         name: call.name,
                         response: { result: `Memory saved: "${fact}"` }
                     });
+                } else if (call.name === 'webSearch') {
+                    const query = call.args['query'] as string;
+                    // Execute the search using our existing search mode logic
+                    // We don't yield this intermediate step to the user to keep the stream clean,
+                    // but the AI will use the result to formulate its answer.
+                    try {
+                        const searchResult = await executeAiFeature(ChatMode.Search, { prompt: query });
+                        functionResponses.push({
+                            id: call.id,
+                            name: call.name,
+                            response: { result: `Search Results:\n${searchResult.text}` }
+                        });
+                    } catch (e) {
+                        functionResponses.push({
+                            id: call.id,
+                            name: call.name,
+                            response: { result: `Search failed: ${e instanceof Error ? e.message : 'Unknown error'}` }
+                        });
+                    }
                 }
             }
 
@@ -160,7 +199,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
     switch (mode) {
         case ChatMode.Study: {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-pro',
+                model: 'gemini-3-pro-preview',
                 contents: prompt,
                 config: {
                     systemInstruction: `You are an expert educator and personal tutor. Your goal is to help the user understand complex topics. Adopt a patient, encouraging, and supportive tone. Break down concepts into simple, easy-to-understand explanations. Use analogies and real-world examples. Ask clarifying questions to check for understanding. Be a natural, friendly, and approachable teacher.\n${getBaseSystemInstruction()}`,
@@ -170,7 +209,7 @@ export const executeAiFeature = async (mode: ChatMode, options: AiFeatureOptions
         }
         case ChatMode.Thinking: {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-pro',
+                model: 'gemini-3-pro-preview',
                 contents: prompt,
                 config: {
                     thinkingConfig: { thinkingBudget: 32768 },
